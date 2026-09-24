@@ -56,21 +56,17 @@
   // 3. Trigger simulated scroll and resize to force Polymer to render below-player metadata
   function forceMetadataRender() {
     try {
-      window.scrollTo(0, 100);
+      window.scrollBy(0, 100);
       window.dispatchEvent(new Event('scroll'));
       window.dispatchEvent(new Event('resize'));
     } catch (_) {}
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(forceMetadataRender, 500);
-      setTimeout(forceMetadataRender, 1200);
-      setTimeout(forceMetadataRender, 2500);
-    });
-  } else {
-    setTimeout(forceMetadataRender, 500);
-    setTimeout(forceMetadataRender, 1200);
-    setTimeout(forceMetadataRender, 2500);
-  }
+  // Nudge repeatedly over the first 15 seconds so Polymer mounts whenever it loads
+  let renderNudges = 0;
+  const nudgeInterval = setInterval(() => {
+    forceMetadataRender();
+    renderNudges++;
+    if (renderNudges > 15) clearInterval(nudgeInterval);
+  }, 1000);
 })();

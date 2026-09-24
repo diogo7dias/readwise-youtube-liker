@@ -145,7 +145,10 @@ function findYouTubeLikeButton() {
   // Strategy 2: Direct query for segmented button or like button in light DOM
   const lightSelectors = [
     'like-button-view-model button',
+    '#top-level-buttons-computed like-button-view-model button',
+    'ytd-watch-metadata like-button-view-model button',
     'segmented-like-dislike-button-view-model like-button-view-model button',
+    'segmented-like-dislike-button-view-model button',
     '#segmented-like-button button',
     'ytd-toggle-button-renderer:first-child button',
     '#top-level-buttons-computed button:first-child',
@@ -256,9 +259,10 @@ function isButtonLiked(btn) {
 async function executeLikeWorkflow() {
   silenceMedia();
 
-  const maxWaitMs = 18000;
-  const pollIntervalMs = 350;
+  const maxWaitMs = 22000;
+  const pollIntervalMs = 300;
   const startTime = Date.now();
+  let lastNudge = 0;
 
   let likeBtn = null;
 
@@ -267,6 +271,28 @@ async function executeLikeWorkflow() {
     silenceMedia();
     likeBtn = findYouTubeLikeButton();
     if (likeBtn) break;
+
+    // Active periodic nudge: scroll window & containers to force Polymer to render below-player items
+    if (Date.now() - lastNudge > 1100) {
+      lastNudge = Date.now();
+      try {
+        window.scrollBy(0, 150);
+        window.dispatchEvent(new Event('scroll'));
+        window.dispatchEvent(new Event('resize'));
+        const scrollers = document.querySelectorAll('ytd-app, #content, #page-manager, #primary');
+        scrollers.forEach(s => {
+          if (s) {
+            s.scrollTop += 80;
+            s.dispatchEvent(new Event('scroll'));
+          }
+        });
+
+        // Auto-dismiss cookie or consent dialog if present
+        const consent = document.querySelector('button[aria-label*="Accept"], button[aria-label*="Concordo"], button[aria-label*="Aceitar"], ytd-button-renderer#confirm-button button');
+        if (consent) consent.click();
+      } catch (_) {}
+    }
+
     await new Promise(r => setTimeout(r, pollIntervalMs));
   }
 
@@ -275,7 +301,7 @@ async function executeLikeWorkflow() {
     const title = document.title;
     return {
       success: false,
-      error: `Could not find YouTube Like button after 18s (page: "${title}", buttons found: ${totalButtons}).`,
+      error: `Could not find YouTube Like button after 22s (page: "${title}", buttons found: ${totalButtons}).`,
     };
   }
 

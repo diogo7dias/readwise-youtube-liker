@@ -480,22 +480,33 @@ function likeVideoInTab(cleanUrl) {
     const sep = cleanUrl.includes('?') ? '&' : '?';
     const targetUrl = `${cleanUrl}${sep}rw_autolike=1`;
 
-    let wakeTimer = null;
+    let wakeTimer1 = null;
+    let wakeTimer2 = null;
     let originalTabId = null;
 
     try {
-      const [current] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (current) originalTabId = current.id;
+      const tabs = await chrome.tabs.query({ currentWindow: true });
+      const nonWorker = tabs.find(t => t.active && !t.url?.includes('rw_autolike=1') && !t.url?.includes('youtube.com/watch'));
+      if (nonWorker) {
+        originalTabId = nonWorker.id;
+      } else {
+        const anyUserTab = tabs.find(t => !t.url?.includes('rw_autolike=1') && !t.url?.includes('youtube.com/watch'));
+        if (anyUserTab) originalTabId = anyUserTab.id;
+      }
     } catch (_) {}
 
     const cleanup = async () => {
       chrome.runtime.onMessage.removeListener(messageListener);
       chrome.tabs.onUpdated.removeListener(statusListener);
       if (timeoutId) clearTimeout(timeoutId);
-      if (wakeTimer) clearTimeout(wakeTimer);
+      if (wakeTimer1) clearTimeout(wakeTimer1);
+      if (wakeTimer2) clearTimeout(wakeTimer2);
       if (originalTabId) {
         try {
-          await chrome.tabs.update(originalTabId, { active: true });
+          const tab = await chrome.tabs.get(originalTabId);
+          if (tab && !tab.active) {
+            await chrome.tabs.update(originalTabId, { active: true });
+          }
         } catch (_) {}
       }
       if (tabId) {
@@ -529,25 +540,44 @@ function likeVideoInTab(cleanUrl) {
     };
     chrome.runtime.onMessage.addListener(messageListener);
 
-    // Global timeout of 24 seconds
+    // Global timeout of 28 seconds
     timeoutId = setTimeout(() => {
       done(new Error('Timed out waiting for YouTube tab to load and like.'));
-    }, 24000);
+    }, 28000);
 
-    // 2. Fallback: Wake background tab if delayed past 4.5s
-    wakeTimer = setTimeout(async () => {
+    // 2. Multi-stage wake: Stage 1 at 3.5s for 1.2s to trigger initial Polymer mount
+    wakeTimer1 = setTimeout(async () => {
       if (resolved || !tabId) return;
       try {
         await chrome.tabs.update(tabId, { active: true });
         setTimeout(async () => {
+          if (resolved) return;
           if (originalTabId) {
             try {
-              await chrome.tabs.update(originalTabId, { active: true });
+              const tab = await chrome.tabs.get(originalTabId);
+              if (tab) await chrome.tabs.update(originalTabId, { active: true });
             } catch (_) {}
           }
-        }, 1400);
+        }, 1200);
       } catch (_) {}
-    }, 4500);
+    }, 3500);
+
+    // Stage 2: Second wake at 8.5s if still waiting
+    wakeTimer2 = setTimeout(async () => {
+      if (resolved || !tabId) return;
+      try {
+        await chrome.tabs.update(tabId, { active: true });
+        setTimeout(async () => {
+          if (resolved) return;
+          if (originalTabId) {
+            try {
+              const tab = await chrome.tabs.get(originalTabId);
+              if (tab) await chrome.tabs.update(originalTabId, { active: true });
+            } catch (_) {}
+          }
+        }, 1800);
+      } catch (_) {}
+    }, 8500);
 
     // 3. Secondary backup: onUpdated complete trigger
     const statusListener = async (updatedTabId, changeInfo, tabInfo) => {
@@ -620,7 +650,16 @@ async function runQueue() {
       addLog(`[${index + 1}/${state.queue.length}] Opening: "${title}"`, 'info');
 
       try {
-        const likeResult = await likeVideoInTab(cleanUrl);
+        let likeResult;
+        try {
+          likeResult = await likeVideoInTab(cleanUrl);
+        } catch (firstErr) {
+          // Retry once with a fresh background tab if first attempt timed out
+          addLog(`Retrying "${title}" (first attempt: ${firstErr.message})...`, 'warn');
+          await new Promise(r => setTimeout(r, 1200));
+          likeResult = await likeVideoInTab(cleanUrl);
+        }
+
         if (likeResult.alreadyLiked) {
           addLog(`Already liked on YouTube: "${title}"`, 'info');
         } else {
