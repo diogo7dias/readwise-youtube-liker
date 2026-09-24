@@ -16,17 +16,33 @@ A Chrome extension for **Readwise Reader** that scans your archived YouTube vide
 
 ---
 
-## 🚀 How to Install in Chrome
+## 🚀 How to Install
 
-1. Open Google Chrome.
-2. Navigate to `chrome://extensions/` in the address bar.
-3. In the top-right corner, enable **Developer mode** (toggle switch).
-4. Click the **Load unpacked** button in the top-left.
-5. Select the folder:
+### In Zen Browser (Your Default Browser)
+
+**Option A: Instant load in your current open Zen session**
+1. In Zen Browser, navigate to: `about:debugging#/runtime/this-firefox` (we already opened this tab for you).
+2. Click **Load Temporary Add-on...**
+3. Select:
+   ```
+   /home/ddm/Projects/readwise-youtube-liker/manifest.json
+   ```
+   (or `/home/ddm/Projects/readwise-youtube-liker/readwise-youtube-liker.xpi`)
+4. The extension is now active in Zen Browser!
+
+**Option B: Permanent Enterprise Policy (Already Configured)**
+- We configured Zen Browser's enterprise policies in `/opt/zen-browser-bin/distribution/policies.json` to automatically install `/home/ddm/Projects/readwise-youtube-liker/readwise-youtube-liker.xpi` across browser launches.
+
+---
+
+### In Google Chrome / Chromium
+1. Open Chrome and navigate to `chrome://extensions/`.
+2. Enable **Developer mode** in the top-right.
+3. Click **Load unpacked** in the top-left.
+4. Select the directory:
    ```
    /home/ddm/Projects/readwise-youtube-liker
    ```
-6. The extension **Readwise Reader - YouTube Auto-Liker** will now appear in your extensions list. Pin it to your toolbar for easy access!
 
 ---
 
