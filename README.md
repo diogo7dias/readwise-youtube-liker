@@ -1,94 +1,74 @@
-# Readwise Reader - YouTube Auto-Liker (Chrome Extension)
+# Readwise YouTube Liker
 
-A Chrome extension for **Readwise Reader** that scans your archived YouTube videos, opens them in muted background tabs to **click "Like" on YouTube** (using your logged-in YouTube session), and updates Readwise Reader by adding the **`liked`** tag so you know they are permanently marked as watched.
+A browser extension for **Zen Browser**, **Firefox**, and **Chrome** that bridges **Readwise Reader** and **YouTube**.
 
----
-
-## 🌟 Features
-
-- **Automated YouTube Liking**: Uses your existing logged-in YouTube account in Chrome. No complex Google Cloud / OAuth setup needed.
-- **Prevents Unliking**: Checks `aria-pressed="true"` on YouTube before clicking. If a video is already liked, it skips the click and marks it tagged.
-- **Silent & Unobtrusive**: Opens YouTube tabs in the background and mutes/pauses the player automatically. No loud sound blasts while you work.
-- **Readwise Reader Tagging**: Automatically updates the document in Readwise Reader by adding the tag `#liked` (preserves all existing tags).
-- **Anti-Bot Rate Limiting**: Batches operations and inserts a polite delay (configurable, default 2.5s) between tabs so YouTube's anti-spam systems are not triggered.
-- **Live Progress & Activity Log**: Track what video is currently being processed, watch the progress bar, and pause/resume/stop at any time.
-- **100% Local & Private**: Runs entirely in your browser. Your Readwise API token stays in your browser's secure storage.
+Automatically opens archived YouTube videos in muted background tabs to **Like** them on YouTube (marking them permanently as watched in your YouTube history), tags them as **`liked`** in Readwise Reader, and detects & cleans duplicate saved videos across your library.
 
 ---
 
-## 🚀 How to Install
+## Features
 
-### In Zen Browser (Your Default Browser)
+- **Automated YouTube Liking**: Uses your active browser YouTube session—no complex Google Cloud API or OAuth setup needed.
+- **Duplicate Video Detector**: Scans your archive or entire library for videos saved multiple times using canonical video ID extraction (`watch`, `shorts`, `embed`, `youtu.be`).
+- **Smart Retention**: Prioritizes keeping copies that have user notes or highlights, or the oldest original save; flags newer duplicates for deletion or tagging.
+- **Bulk Cleanup**: Permanently delete newer duplicates via Readwise API or batch-tag them as `#duplicate`.
+- **Dual-Worker Concurrency**: 2 staggered background workers double processing speed without tripping rate limits.
+- **Silent & Unobtrusive**: Mutes and pauses background tabs immediately.
+- **Prevents Unliking**: Checks button state before clicking. Videos already liked are safely skipped.
+- **100% Local & Private**: Runs entirely inside your browser. Your Readwise API token stays in secure local storage.
 
-**Option A: Instant load in your current open Zen session**
-1. In Zen Browser, navigate to: `about:debugging#/runtime/this-firefox` (we already opened this tab for you).
+---
+
+## Installation
+
+### Zen Browser / Firefox
+
+1. Open `about:debugging#/runtime/this-firefox` in your browser.
 2. Click **Load Temporary Add-on...**
-3. Select:
-   ```
-   /home/ddm/Projects/readwise-youtube-liker/manifest.json
-   ```
-   (or `/home/ddm/Projects/readwise-youtube-liker/readwise-youtube-liker.xpi`)
-4. The extension is now active in Zen Browser!
+3. Select `manifest.json` or `readwise-youtube-liker.xpi` from this repository.
 
-**Option B: Permanent Enterprise Policy (Already Configured)**
-- We configured Zen Browser's enterprise policies in `/opt/zen-browser-bin/distribution/policies.json` to automatically install `/home/ddm/Projects/readwise-youtube-liker/readwise-youtube-liker.xpi` across browser launches.
+### Chrome / Chromium
+
+1. Open `chrome://extensions/`.
+2. Toggle **Developer mode** on (top-right).
+3. Click **Load unpacked** (top-left) and select this project directory.
 
 ---
 
-### In Google Chrome / Chromium
-1. Open Chrome and navigate to `chrome://extensions/`.
-2. Enable **Developer mode** in the top-right.
-3. Click **Load unpacked** in the top-left.
-4. Select the directory:
-   ```
-   /home/ddm/Projects/readwise-youtube-liker
-   ```
+## Setup
 
----
-
-## 🔑 Initial Setup (Readwise Token)
-
-1. Get your Readwise API Access Token from [readwise.io/access_token](https://readwise.io/access_token).
-2. Click the extension icon in Chrome.
+1. Copy your Readwise API Access Token from [readwise.io/access_token](https://readwise.io/access_token).
+2. Click the extension icon in your browser toolbar.
 3. Paste your token and click **Connect**.
-4. The extension will verify the token and show "Readwise Connected".
 
 ---
 
-## 📖 How to Use
+## Usage
 
-1. Open Readwise Reader or click the extension icon anytime.
-2. Click **🔍 Scan Archive**.
-   - The extension queries your Readwise archive for YouTube videos (`youtube.com` / `youtu.be`).
-   - It separates them into videos that still need liking and videos already tagged `liked`.
-3. Choose your batch size (e.g., *Next 10*, *Next 25*, or *All pending*).
-4. Click **▶ Start Liking & Tagging**.
-5. The extension will:
-   - Open each YouTube video in a muted background tab.
-   - Detect the YouTube Like button and click it.
-   - Close the tab.
-   - Update Readwise Reader with the tag `liked`.
-   - Log each step in the Activity Log.
-   - Send a notification when completed!
+### 1. Auto-Liker
+- Open the extension and click **Scan Archive**.
+- Choose a batch size (10, 25, 50, or All).
+- Click **Start Liking & Tagging**. The extension opens tabs in the background, likes each video, tags it `#liked` in Readwise, and closes the tab.
+
+### 2. Duplicate Cleaner
+- Click the **Duplicates** tab in the popup.
+- Select scope (**Archive Only** or **Entire Library**) and click **Scan Duplicates**.
+- Review detected groups showing **KEEP** and **DELETE** recommendations.
+- Click **Delete Newer Copies** or **Tag All as #duplicate**.
 
 ---
 
-## ⚙️ Customization (Options Page)
+## Settings
 
-Right-click the extension icon and select **Options** (or click the ⚙️ gear icon in the popup) to customize:
-- **Tag Name**: Default is `liked`. You can change it to `watched`, `yt-liked`, or anything you prefer.
-- **Delay Between Videos**: Default is `2.5 seconds`.
-- **Mute Audio**: Keep checked to ensure background tabs stay silent.
-- **Test Connection**: Verify your Readwise API token anytime.
+Click the ⚙️ gear icon in the popup to configure:
+- **Tag Name**: Default `liked`.
+- **Duplicate Tag Name**: Default `duplicate`.
+- **Concurrent Workers**: 1 (gentle) or 2 (fast, staggered).
+- **Delay Between Videos**: Default `2.5s`.
+- **Mute Audio**: Mutes media playback in background tabs.
 
 ---
 
-## 🛠️ Project Structure
+## License
 
-- `manifest.json`: Manifest V3 extension configuration and permissions.
-- `background.js`: Service worker managing archive scanning, tab opening, and queue execution.
-- `youtube_content.js`: Injected into YouTube tabs to find the Like button, verify state, and click.
-- `reader_content.js`: Injected into `read.readwise.io` providing quick-trigger integration.
-- `popup.html` / `popup.js` / `popup.css`: User interface with scanner, batching controls, and live log.
-- `options.html` / `options.js`: Extension settings page.
-- `icons/`: Extension icons in SVG and PNG formats (16px, 48px, 128px).
+MIT
