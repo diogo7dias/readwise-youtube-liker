@@ -340,6 +340,9 @@ async function deleteDuplicateDocs(token, items) {
     }
   }
 
+  state.dupProgress.current = total;
+  state.dupProgress.successCount = deletedCount;
+  state.dupProgress.errorCount = errors.length;
   state.dupProgress.active = false;
   state.dupProgress.completed = true;
   state.dupProgress.currentTitle = 'Finished';
@@ -415,6 +418,9 @@ async function tagDuplicateDocs(token, items, tagName = 'duplicate') {
     }
   }
 
+  state.dupProgress.current = total;
+  state.dupProgress.successCount = taggedCount;
+  state.dupProgress.errorCount = errors.length;
   state.dupProgress.active = false;
   state.dupProgress.completed = true;
   state.dupProgress.message = `Finished: Tagged ${taggedCount}/${total} documents.`;
@@ -702,6 +708,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'SCAN_DUPLICATES') {
+    state.dupProgress = {
+      active: false,
+      action: null,
+      total: 0,
+      current: 0,
+      currentTitle: '',
+      successCount: 0,
+      errorCount: 0,
+      completed: false,
+      message: '',
+    };
     chrome.storage.sync.get(DEFAULT_SETTINGS, async (settings) => {
       try {
         const result = await scanDuplicates(settings.readwiseToken, request.locationFilter || 'archive', request.maxPages || 8);

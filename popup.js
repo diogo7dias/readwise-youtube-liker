@@ -505,12 +505,37 @@ function refreshState() {
       dupProgressSection.classList.remove('hidden');
       dupActionsSection.classList.add('hidden');
       dupConfirmSection.classList.add('hidden');
+      dupStatusBanner.classList.add('hidden');
 
       dupProgressTitle.textContent = dp.message || 'Processing duplicates...';
       dupProgressCounter.textContent = `${dp.current} / ${dp.total}`;
       const pct = dp.total > 0 ? Math.round((dp.current / dp.total) * 100) : 0;
       dupProgressBar.style.width = `${pct}%`;
       dupCurrentTitle.textContent = dp.currentTitle || 'Working...';
+    } else if (state.dupProgress && state.dupProgress.completed) {
+      dupProgressSection.classList.add('hidden');
+      dupConfirmSection.classList.add('hidden');
+
+      const dp = state.dupProgress;
+      if (dp.errorCount > 0) {
+        dupStatusBanner.className = 'status-banner error';
+        dupStatusBanner.textContent = `Completed with errors: ${dp.successCount} of ${dp.total} deleted, ${dp.errorCount} failed.`;
+      } else {
+        dupStatusBanner.className = 'status-banner success';
+        dupStatusBanner.textContent = `✓ All done! Successfully deleted all ${dp.successCount} duplicate copy(ies) from Readwise!`;
+      }
+      dupStatusBanner.classList.remove('hidden');
+
+      // Clear duplicate list when all deleted
+      if (duplicateGroups.length > 0 && dp.successCount > 0) {
+        duplicateGroups = [];
+        totalDuplicateDocs = 0;
+        statDupGroups.textContent = '0';
+        statDupDocs.textContent = '0';
+        renderDuplicates();
+      }
+    } else {
+      dupProgressSection.classList.add('hidden');
     }
 
     // 3. Tab 1: Auto-Liker queue transitions
