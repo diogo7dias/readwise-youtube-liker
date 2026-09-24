@@ -45,21 +45,110 @@ function silenceMedia() {
 
 silenceMedia();
 
-// Continuously watch for newly inserted video elements and mute them
 if (document.documentElement) {
   const mediaObserver = new MutationObserver(() => silenceMedia());
   mediaObserver.observe(document.documentElement, { childList: true, subtree: true });
 }
 
-// 3. Recursive Shadow DOM & Light DOM search for YouTube's Like Button
+// Helper: Traverse parent hierarchy crossing Shadow DOM boundaries
+function closestAcrossShadow(element, selector) {
+  let current = element;
+  while (current) {
+    if (current.matches && current.matches(selector)) {
+      return current;
+    }
+    if (current.parentElement) {
+      current = current.parentElement;
+    } else if (current.parentNode && current.parentNode.host) {
+      // Step outside the Shadow Root to its host element
+      current = current.parentNode.host;
+    } else {
+      break;
+    }
+  }
+  return null;
+}
+
+// Helper: Recursively search for custom element tag across light DOM and all shadow roots
+function findCustomElementDeep(root, tagName) {
+  if (!root) return null;
+  const targetTag = tagName.toLowerCase();
+
+  // Check direct query if available
+  if (root.querySelector) {
+    try {
+      const el = root.querySelector(targetTag);
+      if (el) return el;
+    } catch (_) {}
+  }
+
+  // Traverse children and shadow roots
+  const elements = root.querySelectorAll ? Array.from(root.querySelectorAll('*')) : [];
+  for (const el of elements) {
+    if (el.tagName && el.tagName.toLowerCase() === targetTag) {
+      return el;
+    }
+    if (el.shadowRoot) {
+      const nested = findCustomElementDeep(el.shadowRoot, targetTag);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+// Helper: Extract clickable button from inside a host element (drilling down through shadow roots)
+function extractButtonFromHost(host) {
+  if (!host) return null;
+  if (host.tagName === 'BUTTON') return host;
+
+  if (host.querySelector) {
+    const b = host.querySelector('button');
+    if (b) return b;
+  }
+
+  // Drill down into shadow root
+  if (host.shadowRoot) {
+    function searchDown(node) {
+      if (!node) return null;
+      if (node.tagName === 'BUTTON') return node;
+      if (node.querySelector) {
+        const direct = node.querySelector('button');
+        if (direct) return direct;
+      }
+      const children = node.querySelectorAll ? Array.from(node.querySelectorAll('*')) : [];
+      for (const child of children) {
+        if (child.tagName === 'BUTTON') return child;
+        if (child.shadowRoot) {
+          const res = searchDown(child.shadowRoot);
+          if (res) return res;
+        }
+      }
+      return null;
+    }
+
+    const shadowBtn = searchDown(host.shadowRoot);
+    if (shadowBtn) return shadowBtn;
+  }
+
+  return null;
+}
+
+// 3. Multi-Strategy Search for YouTube Like Button
 function findYouTubeLikeButton() {
-  // Strategy A: Direct light DOM queries
+  // Strategy 1: Top-down search for <like-button-view-model> (Works in ALL languages!)
+  const likeVm = findCustomElementDeep(document, 'like-button-view-model');
+  if (likeVm) {
+    const btn = extractButtonFromHost(likeVm);
+    if (btn) return btn;
+  }
+
+  // Strategy 2: Direct query for segmented button or like button in light DOM
   const lightSelectors = [
-    'segmented-like-dislike-button-view-model button',
     'like-button-view-model button',
+    'segmented-like-dislike-button-view-model like-button-view-model button',
     '#segmented-like-button button',
     'ytd-toggle-button-renderer:first-child button',
-    '#top-level-buttons-computed button',
+    '#top-level-buttons-computed button:first-child',
     'ytd-like-button-renderer button',
     '#like-button button',
     'ytd-reel-player-header-renderer button',
@@ -72,40 +161,8 @@ function findYouTubeLikeButton() {
     } catch (_) {}
   }
 
-  // Strategy B: Traverse known Shadow DOM hosts directly
-  const hostSelectors = [
-    'like-button-view-model',
-    'segmented-like-dislike-button-view-model',
-    'toggle-button-view-model',
-    'button-view-model',
-    'yt-button-shape',
-    'ytd-watch-metadata',
-    '#top-level-buttons-computed',
-  ];
-
-  for (const sel of hostSelectors) {
-    try {
-      const hosts = document.querySelectorAll(sel);
-      for (const host of hosts) {
-        if (host.shadowRoot) {
-          const btn = host.shadowRoot.querySelector('button');
-          if (btn && isLikeCandidate(btn)) return btn;
-
-          // Check nested shadow roots
-          const subHosts = host.shadowRoot.querySelectorAll('*');
-          for (const sub of subHosts) {
-            if (sub.shadowRoot) {
-              const subBtn = sub.shadowRoot.querySelector('button');
-              if (subBtn && isLikeCandidate(subBtn)) return subBtn;
-            }
-          }
-        }
-      }
-    } catch (_) {}
-  }
-
-  // Strategy C: Full recursive search across all open Shadow Roots
-  function searchRoots(node) {
+  // Strategy 3: Full recursive search across all shadow roots
+  function searchAllRoots(node) {
     if (!node) return null;
 
     if (node.querySelectorAll) {
@@ -115,10 +172,10 @@ function findYouTubeLikeButton() {
       }
     }
 
-    const all = node.querySelectorAll ? node.querySelectorAll('*') : [];
+    const all = node.querySelectorAll ? Array.from(node.querySelectorAll('*')) : [];
     for (const el of all) {
       if (el.shadowRoot) {
-        const found = searchRoots(el.shadowRoot);
+        const found = searchAllRoots(el.shadowRoot);
         if (found) return found;
       }
     }
@@ -126,56 +183,70 @@ function findYouTubeLikeButton() {
     return null;
   }
 
-  return searchRoots(document);
+  return searchAllRoots(document);
 }
 
-// Check if a button element is actually a Like button (not dislike)
+// Check if a button element is the Like button (handles English, Portuguese, Spanish, French, etc.)
 function isLikeCandidate(btn) {
   if (!btn) return false;
+
+  // 1. Structural check: Is this inside a like-button-view-model? (Shadow-piercing)
+  if (closestAcrossShadow(btn, 'like-button-view-model')) return true;
+
+  // 2. Structural exclusion: Is this inside a dislike-button-view-model?
+  if (closestAcrossShadow(btn, 'dislike-button-view-model')) return false;
+
   const label = (btn.getAttribute('aria-label') || '').toLowerCase();
   const title = (btn.getAttribute('title') || '').toLowerCase();
   const text = (btn.textContent || '').trim().toLowerCase();
 
-  // Exclude dislike explicitly
-  if (label.includes('dislike') || title.includes('dislike')) return false;
+  // Exclude dislike across languages (English: dislike; PT: não gosto; ES: no me gusta; FR: je n'aime pas; DE: mag ich nicht)
+  const dislikePatterns = ['dislike', 'não gosto', 'nao gosto', 'no me gusta', "je n'aime pas", 'mag ich nicht', 'non mi piace'];
+  for (const dp of dislikePatterns) {
+    if (label.includes(dp) || title.includes(dp) || text.includes(dp)) return false;
+  }
 
-  // Match like patterns
-  if (label.includes('like this') || label.startsWith('like') || label.includes('liked')) return true;
-  if (title.includes('like this') || title.startsWith('like')) return true;
+  // Match like across languages (English: like; PT: gosto/gostar; ES: me gusta; FR: j'aime; DE: mag ich; IT: mi piace)
+  const likePatterns = [
+    'like this', 'like', 'liked',
+    'gosto deste', 'gostar deste', 'gosto', 'gostar',
+    'me gusta', 'gusta',
+    "j'aime", 'aime',
+    'mag ich',
+    'mi piace'
+  ];
 
-  // Check closest custom element tag
-  if (btn.closest && btn.closest('like-button-view-model')) return true;
+  for (const lp of likePatterns) {
+    if (label.includes(lp) || title.includes(lp) || text.includes(lp)) return true;
+  }
 
   return false;
 }
 
-// Check if the button is currently liked
+// Check if the video is currently liked
 function isButtonLiked(btn) {
   if (!btn) return false;
 
-  // 1. Check aria-pressed
-  const pressed = btn.getAttribute('aria-pressed');
-  if (pressed === 'true') return true;
+  // 1. ARIA pressed attribute (Standard W3C - works in all languages)
+  if (btn.getAttribute('aria-pressed') === 'true') return true;
 
-  // 2. Check aria-label for state
-  const label = (btn.getAttribute('aria-label') || '').toLowerCase();
-  if (label.includes('unlike') || label.includes('remove like')) return true;
+  // 2. Check wrappers across shadow roots for aria-pressed
+  if (closestAcrossShadow(btn, '[aria-pressed="true"]')) return true;
 
-  // 3. Check tonal styling class on button or its shadow host
+  // 3. Check for tonal class (YouTube adds yt-spec-button-shape-next--tonal when active)
   if (btn.classList.contains('yt-spec-button-shape-next--tonal')) {
-    const parentDislike = btn.closest ? btn.closest('dislike-button-view-model') : null;
-    if (!parentDislike) return true;
+    if (!closestAcrossShadow(btn, 'dislike-button-view-model')) return true;
+  }
+  const tonalParent = closestAcrossShadow(btn, '.yt-spec-button-shape-next--tonal');
+  if (tonalParent && !closestAcrossShadow(btn, 'dislike-button-view-model')) {
+    return true;
   }
 
-  // 4. Check ancestors up to 5 levels
-  let cur = btn;
-  for (let i = 0; i < 5 && cur; i++) {
-    if (cur.getAttribute && cur.getAttribute('aria-pressed') === 'true') return true;
-    if (cur.classList && cur.classList.contains('yt-spec-button-shape-next--tonal')) {
-      const curLabel = (cur.getAttribute('aria-label') || '').toLowerCase();
-      if (!curLabel.includes('dislike')) return true;
-    }
-    cur = cur.parentElement || (cur.parentNode && cur.parentNode.host ? cur.parentNode.host : null);
+  // 4. Language-specific "Unlike" / "Remover gosto" aria-labels
+  const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+  const unlikePatterns = ['unlike', 'remover gosto', 'já não gosto', 'ja nao gosto', 'remover o gosto', 'ya no me gusta', "je n'aime plus"];
+  for (const up of unlikePatterns) {
+    if (label.includes(up)) return true;
   }
 
   return false;
@@ -200,7 +271,6 @@ async function executeLikeWorkflow() {
   }
 
   if (!likeBtn) {
-    // Collect page diagnostic info
     const totalButtons = document.querySelectorAll('button').length;
     const title = document.title;
     return {
@@ -218,10 +288,14 @@ async function executeLikeWorkflow() {
     };
   }
 
-  // Click the like button
+  // Click the like button with multiple synthetic event types for reliability
   try {
     likeBtn.click();
-    likeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+    likeBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    likeBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    likeBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+    likeBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+    likeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
   } catch (clickErr) {
     console.warn('[Readwise Auto-Liker] Click error:', clickErr);
   }
@@ -231,7 +305,7 @@ async function executeLikeWorkflow() {
   let confirmed = false;
 
   while (Date.now() - confirmStart < 4000) {
-    await new Promise(r => setTimeout(r, 350));
+    await new Promise(r => setTimeout(r, 300));
     if (isButtonLiked(likeBtn)) {
       confirmed = true;
       break;
@@ -263,7 +337,6 @@ function checkAutoStart() {
   const url = window.location.href;
   if (url.includes('rw_autolike=1')) {
     executionStarted = true;
-    // Allow DOM 1s to settle
     setTimeout(() => {
       executeLikeWorkflow().then(result => {
         chrome.runtime.sendMessage({ action: 'LIKE_RESULT', ...result });
