@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Readwise YouTube Liker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <img src="icons/icon48.png" alt="Logo" class="logo">
+        <div>
+          <h1>Readwise YouTube Liker</h1>
+          <p class="subtitle">Auto-like archived videos & tag as liked</p>
+        </div>
+      </div>
+      <button id="btnOptions" class="icon-button" title="Settings">⚙️</button>
+    </header>
+
+    <!-- Token Configuration Banner (shown if token not set) -->
+    <section id="tokenSection" class="card setup-card hidden">
+      <h3>🔑 Readwise Setup</h3>
+      <p class="help-text">
+        Enter your Readwise Access Token to connect. 
+        <a href="https://readwise.io/access_token" target="_blank" class="link">Get your token here ↗</a>
+      </p>
+      <div class="input-group">
+        <input type="password" id="inputToken" placeholder="Paste your Readwise token here">
+        <button id="btnSaveToken" class="btn btn-primary">Connect</button>
+      </div>
+      <div id="tokenError" class="status-msg error hidden"></div>
+    </section>
+
+    <!-- Main Workspace (shown when token is set) -->
+    <main id="mainWorkspace" class="workspace">
+      <!-- Status Bar -->
+      <div class="status-bar">
+        <div class="connection-indicator">
+          <span class="dot connected"></span>
+          <span>Readwise Connected</span>
+        </div>
+        <div class="tag-badge">
+          Tag: <strong id="lblTagName">liked</strong>
+        </div>
+      </div>
+
+      <!-- Scan Controls & Stats -->
+      <section class="card scan-card">
+        <div class="scan-header">
+          <div>
+            <h3>Archive Scanner</h3>
+            <p class="card-desc">Find YouTube videos in your Readwise archive</p>
+          </div>
+          <button id="btnScan" class="btn btn-secondary">
+            <span class="btn-icon">🔍</span> Scan Archive
+          </button>
+        </div>
+
+        <div id="scanStats" class="stats-grid hidden">
+          <div class="stat-box">
+            <span class="stat-value" id="statPending">0</span>
+            <span class="stat-label">Need Liking</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-value" id="statAlreadyLiked">0</span>
+            <span class="stat-label">Already Liked</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-value" id="statTotal">0</span>
+            <span class="stat-label">Total Found</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Execution Controls -->
+      <section id="actionSection" class="card action-card hidden">
+        <div class="batch-select-row">
+          <label for="batchSelect">Batch size:</label>
+          <select id="batchSelect">
+            <option value="10">Next 10 videos</option>
+            <option value="25" selected>Next 25 videos</option>
+            <option value="50">Next 50 videos</option>
+            <option value="0">All pending videos</option>
+          </select>
+        </div>
+
+        <div class="queue-button-group">
+          <button id="btnStart" class="btn btn-primary btn-large">
+            ▶ Start Liking & Tagging
+          </button>
+          <button id="btnPause" class="btn btn-warning hidden">
+            ⏸ Pause
+          </button>
+          <button id="btnResume" class="btn btn-primary hidden">
+            ▶ Resume
+          </button>
+          <button id="btnCancel" class="btn btn-danger hidden">
+            ⏹ Stop
+          </button>
+        </div>
+      </section>
+
+      <!-- Active Progress Card (shown when running or paused) -->
+      <section id="progressSection" class="card progress-card hidden">
+        <div class="progress-header">
+          <span class="progress-title" id="progressStatusText">Processing videos...</span>
+          <span class="progress-counter" id="progressCounter">0 / 0</span>
+        </div>
+        <div class="progress-bar-container">
+          <div id="progressBar" class="progress-bar" style="width: 0%;"></div>
+        </div>
+        <div class="current-item-row" id="currentItemRow">
+          <div class="spinner-small"></div>
+          <span class="current-item-title" id="currentDocTitle">Opening YouTube...</span>
+        </div>
+      </section>
+
+      <!-- Activity Log -->
+      <section class="card log-card">
+        <div class="log-header">
+          <h4>Activity Log</h4>
+          <button id="btnClearLog" class="btn-text">Clear</button>
+        </div>
+        <div id="logList" class="log-list">
+          <div class="log-empty">No activity yet. Click "Scan Archive" to begin.</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <span>Auto-likes in muted background tabs • Safe rate-limiting</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

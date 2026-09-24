@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Readwise Reader - YouTube Auto-Liker",
+  "version": "1.0.0",
+  "description": "Automatically opens archived YouTube videos from Readwise Reader, likes them on YouTube, and tags them as 'liked'.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Readwise YouTube Auto-Liker"
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://readwise.io/*",
+    "https://*.youtube.com/*",
+    "https://read.readwise.io/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://m.youtube.com/*"
+      ],
+      "js": ["youtube_content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://read.readwise.io/*"
+      ],
+      "js": ["reader_content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
