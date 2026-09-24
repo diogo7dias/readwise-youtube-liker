@@ -17,10 +17,21 @@
     },
     "default_title": "Readwise YouTube Auto-Liker"
   },
-  "options_page": "options.html",
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "readwise-youtube-liker@local",
+      "strict_min_version": "109.0"
+    }
+  },
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "scripts": [
+      "background.js"
+    ],
+    "service_worker": "background.js"
   },
   "permissions": [
     "storage",
@@ -40,14 +51,18 @@
         "https://youtube.com/*",
         "https://m.youtube.com/*"
       ],
-      "js": ["youtube_content.js"],
+      "js": [
+        "youtube_content.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": [
         "https://read.readwise.io/*"
       ],
-      "js": ["reader_content.js"],
+      "js": [
+        "reader_content.js"
+      ],
       "run_at": "document_idle"
     }
   ]

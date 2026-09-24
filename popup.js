@@ -159,7 +159,11 @@ btnOptions.addEventListener('click', () => {
 
 // Clear Log button
 btnClearLog.addEventListener('click', () => {
-  logList.innerHTML = '<div class="log-empty">Log cleared.</div>';
+  logList.replaceChildren();
+  const empty = document.createElement('div');
+  empty.className = 'log-empty';
+  empty.textContent = 'Log cleared.';
+  logList.appendChild(empty);
 });
 
 // Query background for status and update UI
@@ -167,16 +171,25 @@ function refreshState() {
   chrome.runtime.sendMessage({ action: 'GET_STATE' }, (state) => {
     if (!state) return;
 
-    // Render Logs
+    // Render Logs safely without innerHTML
     if (state.logs && state.logs.length > 0) {
-      logList.innerHTML = state.logs
-        .map(entry => `
-          <div class="log-entry ${entry.type}">
-            <span class="log-time">[${entry.time}]</span>
-            <span class="log-msg">${escapeHtml(entry.message)}</span>
-          </div>
-        `)
-        .join('');
+      logList.replaceChildren();
+      for (const entry of state.logs) {
+        const row = document.createElement('div');
+        row.className = `log-entry ${entry.type}`;
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'log-time';
+        timeSpan.textContent = `[${entry.time}]`;
+
+        const msgSpan = document.createElement('span');
+        msgSpan.className = 'log-msg';
+        msgSpan.textContent = entry.message;
+
+        row.appendChild(timeSpan);
+        row.appendChild(msgSpan);
+        logList.appendChild(row);
+      }
     }
 
     // UI state transitions
