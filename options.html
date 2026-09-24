@@ -183,6 +183,25 @@
       </div>
 
       <div class="form-group">
+        <label for="selConcurrency">Concurrent Workers</label>
+        <select id="selConcurrency">
+          <option value="1">1 worker (Sequential, gentle)</option>
+          <option value="2" selected>2 workers (Faster, staggered)</option>
+        </select>
+        <p class="help">
+          Number of background tabs opened concurrently to like videos in parallel.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label for="txtDupTag">Duplicate Tag Name</label>
+        <input type="text" id="txtDupTag" value="duplicate">
+        <p class="help">
+          Tag applied when tagging redundant duplicate videos in Readwise (default: <code>duplicate</code>).
+        </p>
+      </div>
+
+      <div class="form-group">
         <label class="checkbox-label">
           <input type="checkbox" id="chkMute" checked>
           <span>Mute audio and pause player in background tabs</span>

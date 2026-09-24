@@ -4,7 +4,9 @@
 
 const txtToken = document.getElementById('txtToken');
 const txtTag = document.getElementById('txtTag');
+const txtDupTag = document.getElementById('txtDupTag');
 const numDelay = document.getElementById('numDelay');
+const selConcurrency = document.getElementById('selConcurrency');
 const chkMute = document.getElementById('chkMute');
 const btnTest = document.getElementById('btnTest');
 const btnSave = document.getElementById('btnSave');
@@ -15,12 +17,16 @@ const saveStatus = document.getElementById('saveStatus');
 chrome.storage.sync.get({
   readwiseToken: '',
   tagName: 'liked',
+  duplicateTagName: 'duplicate',
   delaySeconds: 2.5,
+  concurrency: 2,
   muteAudio: true,
 }, (items) => {
   txtToken.value = items.readwiseToken || '';
   txtTag.value = items.tagName || 'liked';
+  txtDupTag.value = items.duplicateTagName || 'duplicate';
   numDelay.value = items.delaySeconds || 2.5;
+  selConcurrency.value = String(items.concurrency || 2);
   chkMute.checked = items.muteAudio !== false;
 });
 
@@ -53,13 +59,17 @@ btnTest.addEventListener('click', () => {
 btnSave.addEventListener('click', () => {
   const token = txtToken.value.trim();
   const tag = txtTag.value.trim() || 'liked';
+  const dupTag = txtDupTag.value.trim() || 'duplicate';
   const delay = parseFloat(numDelay.value) || 2.5;
+  const concurrency = parseInt(selConcurrency.value, 10) || 2;
   const mute = chkMute.checked;
 
   chrome.storage.sync.set({
     readwiseToken: token,
     tagName: tag,
+    duplicateTagName: dupTag,
     delaySeconds: delay,
+    concurrency: concurrency,
     muteAudio: mute,
   }, () => {
     saveStatus.textContent = '✓ Settings saved successfully!';

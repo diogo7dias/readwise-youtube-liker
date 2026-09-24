@@ -5,8 +5,10 @@
 const DEFAULT_SETTINGS = {
   readwiseToken: '',
   tagName: 'liked',
-  delaySeconds: 2.5,
+  duplicateTagName: 'duplicate',
+  delaySeconds: 2.0,
   batchLimit: 25,
+  concurrency: 2,
   muteAudio: true,
 };
 
@@ -20,6 +22,7 @@ const state = {
   currentDoc: null,
   logs: [],
   activeTabId: null,
+  activeTabIds: new Set(),
 };
 
 function addLog(message, type = 'info') {
@@ -31,25 +34,34 @@ function addLog(message, type = 'info') {
   }
 }
 
+// Canonical YouTube Video ID Extractor (handles watch, shorts, embed, youtu.be, mobile)
+function extractYouTubeVideoId(urlStr) {
+  if (!urlStr) return null;
+  try {
+    const url = new URL(urlStr);
+    const host = url.hostname.toLowerCase();
+    if (host.includes('youtube.com')) {
+      if (url.pathname.startsWith('/shorts/')) {
+        return url.pathname.split('/shorts/')[1].split('/')[0].split('?')[0];
+      }
+      if (url.pathname.startsWith('/embed/')) {
+        return url.pathname.split('/embed/')[1].split('/')[0].split('?')[0];
+      }
+      return url.searchParams.get('v');
+    }
+    if (host === 'youtu.be') {
+      return url.pathname.slice(1).split('/')[0].split('?')[0];
+    }
+  } catch (_) {}
+  const match = urlStr.match(/(?:v=|\/shorts\/|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+  return match ? match[1] : null;
+}
+
 // Helper to extract clean YouTube Watch URL
 function getCleanYouTubeUrl(sourceUrl) {
-  if (!sourceUrl) return null;
-  try {
-    const url = new URL(sourceUrl);
-    if (url.hostname.includes('youtube.com')) {
-      if (url.pathname.startsWith('/shorts/')) {
-        const id = url.pathname.split('/shorts/')[1].split('/')[0];
-        return `https://www.youtube.com/watch?v=${id}`;
-      }
-      const v = url.searchParams.get('v');
-      if (v) return `https://www.youtube.com/watch?v=${v}`;
-    } else if (url.hostname === 'youtu.be') {
-      const id = url.pathname.slice(1).split('/')[0];
-      return `https://www.youtube.com/watch?v=${id}`;
-    }
-  } catch (_) {
-    const match = sourceUrl.match(/(?:v=|\/shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (match) return `https://www.youtube.com/watch?v=${match[1]}`;
+  const videoId = extractYouTubeVideoId(sourceUrl);
+  if (videoId) {
+    return `https://www.youtube.com/watch?v=${videoId}`;
   }
   return sourceUrl;
 }
@@ -57,7 +69,7 @@ function getCleanYouTubeUrl(sourceUrl) {
 // Check if a document is a YouTube video
 function isYouTubeDoc(doc) {
   const url = doc.source_url || doc.url || '';
-  return /(?:youtube\.com\/(?:watch|shorts)|youtu\.be\/)/i.test(url);
+  return Boolean(extractYouTubeVideoId(url));
 }
 
 // Check if doc already contains tag
@@ -143,6 +155,162 @@ async function scanArchive(token, targetTag, maxPages = 5) {
   };
 }
 
+// Scan for duplicate YouTube videos across Readwise library
+async function scanDuplicates(token, locationFilter = 'archive', maxPages = 8) {
+  if (!token) throw new Error('Readwise API token is missing.');
+
+  addLog(`Scanning Readwise for duplicate YouTube videos (scope: ${locationFilter})...`, 'info');
+
+  const videoMap = new Map(); // videoId -> [doc, doc...]
+  let pageCursor = null;
+  let pageCount = 0;
+  let totalDocsScanned = 0;
+
+  while (pageCount < maxPages) {
+    pageCount++;
+    const params = new URLSearchParams();
+    if (locationFilter && locationFilter !== 'all') {
+      params.set('location', locationFilter);
+    }
+    if (pageCursor) params.set('pageCursor', pageCursor);
+
+    const response = await fetch(`https://readwise.io/api/v3/list/?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'Authorization': `Token ${token}` },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Readwise API returned status ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const results = data.results || [];
+    totalDocsScanned += results.length;
+
+    for (const doc of results) {
+      const url = doc.source_url || doc.url || '';
+      const videoId = extractYouTubeVideoId(url);
+      if (videoId) {
+        if (!videoMap.has(videoId)) {
+          videoMap.set(videoId, []);
+        }
+        videoMap.get(videoId).push(doc);
+      }
+    }
+
+    pageCursor = data.nextPageCursor;
+    if (!pageCursor) break;
+  }
+
+  // Filter groups with > 1 doc
+  const duplicateGroups = [];
+  let totalDuplicateDocs = 0;
+
+  for (const [videoId, docs] of videoMap.entries()) {
+    if (docs.length > 1) {
+      // Sort to prioritize keeping the copy with notes/highlights, otherwise oldest saved_at
+      docs.sort((a, b) => {
+        const aHasNotes = Boolean(a.notes && a.notes.trim().length > 0);
+        const bHasNotes = Boolean(b.notes && b.notes.trim().length > 0);
+        if (aHasNotes && !bHasNotes) return -1;
+        if (!aHasNotes && bHasNotes) return 1;
+
+        const dateA = new Date(a.saved_at || a.created_at || 0).getTime();
+        const dateB = new Date(b.saved_at || b.created_at || 0).getTime();
+        return dateA - dateB; // older first
+      });
+
+      const keepDoc = docs[0];
+      const duplicates = docs.slice(1);
+      totalDuplicateDocs += duplicates.length;
+
+      duplicateGroups.push({
+        videoId,
+        title: keepDoc.title || duplicates[0].title || 'Untitled Video',
+        keepDoc: {
+          id: keepDoc.id,
+          title: keepDoc.title,
+          location: keepDoc.location,
+          saved_at: keepDoc.saved_at || keepDoc.created_at,
+          notes: keepDoc.notes || '',
+        },
+        duplicateDocs: duplicates.map(d => ({
+          id: d.id,
+          title: d.title,
+          location: d.location,
+          saved_at: d.saved_at || d.created_at,
+          notes: d.notes || '',
+        })),
+      });
+    }
+  }
+
+  addLog(`Duplicate scan complete: Found ${duplicateGroups.length} duplicate groups (${totalDuplicateDocs} redundant copies).`, 'success');
+
+  return {
+    duplicateGroups,
+    totalDuplicateDocs,
+    totalScanned: totalDocsScanned,
+  };
+}
+
+// Delete duplicate documents via Readwise DELETE API
+async function deleteDuplicateDocs(token, docIds) {
+  if (!token) throw new Error('Readwise token missing.');
+  if (!docIds || docIds.length === 0) return { deletedCount: 0 };
+
+  addLog(`Deleting ${docIds.length} duplicate document(s)...`, 'info');
+  let deletedCount = 0;
+  const errors = [];
+
+  for (const id of docIds) {
+    try {
+      const res = await fetch(`https://readwise.io/api/v3/delete/${id}/`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Token ${token}` },
+      });
+      if (res.ok || res.status === 204 || res.status === 404) {
+        deletedCount++;
+      } else {
+        errors.push(`Failed to delete ${id}: ${res.status}`);
+      }
+    } catch (err) {
+      errors.push(`Error deleting ${id}: ${err.message}`);
+    }
+  }
+
+  addLog(`Successfully deleted ${deletedCount}/${docIds.length} duplicates.`, 'success');
+  return { deletedCount, errors };
+}
+
+// Tag duplicate documents with a specific tag (e.g. duplicate)
+async function tagDuplicateDocs(token, docIds, tagName = 'duplicate') {
+  if (!token) throw new Error('Readwise token missing.');
+  if (!docIds || docIds.length === 0) return { taggedCount: 0 };
+
+  addLog(`Tagging ${docIds.length} duplicate documents as #${tagName}...`, 'info');
+
+  const updates = docIds.map(id => ({ id, tags: [tagName] }));
+  let taggedCount = 0;
+  for (let i = 0; i < updates.length; i += 40) {
+    const chunk = updates.slice(i, i + 40);
+    const res = await fetch('https://readwise.io/api/v3/bulk_update/', {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Token ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ updates: chunk }),
+    });
+    if (res.ok) {
+      taggedCount += chunk.length;
+    }
+  }
+
+  addLog(`Successfully tagged ${taggedCount} duplicates as #${tagName}.`, 'success');
+  return { taggedCount };
+}
+
 // Tag a document in Readwise Reader
 async function addTagToReadwise(token, doc, targetTag) {
   const currentTags = getExistingTagNames(doc);
@@ -220,6 +388,7 @@ function likeVideoInTab(cleanUrl) {
         if (state.activeTabId === tabId) {
           state.activeTabId = null;
         }
+        state.activeTabIds.delete(tabId);
       }
     };
 
@@ -295,18 +464,20 @@ function likeVideoInTab(cleanUrl) {
       });
       tabId = tab.id;
       state.activeTabId = tabId;
+      state.activeTabIds.add(tabId);
     } catch (createErr) {
       done(createErr);
     }
   });
 }
 
-// Queue execution loop
+// Queue execution loop with configurable concurrency (1 or 2 workers)
 async function runQueue() {
   const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
   const token = settings.readwiseToken;
   const targetTag = settings.tagName || 'liked';
   const delayMs = (settings.delaySeconds || 2) * 1000;
+  const concurrency = Math.min(Math.max(settings.concurrency || 2, 1), 2);
 
   if (!token) {
     state.status = 'error';
@@ -318,41 +489,52 @@ async function runQueue() {
   chrome.action.setBadgeText({ text: '▶' });
   chrome.action.setBadgeBackgroundColor({ color: '#E50914' });
 
-  while (state.status === 'running' && state.currentIndex < state.queue.length) {
-    const doc = state.queue[state.currentIndex];
-    state.currentDoc = doc;
+  async function worker(workerId) {
+    while (state.status === 'running') {
+      const index = state.currentIndex++;
+      if (index >= state.queue.length) break;
 
-    const title = doc.title || 'Untitled Video';
-    const cleanUrl = getCleanYouTubeUrl(doc.source_url || doc.url);
+      const doc = state.queue[index];
+      state.currentDoc = doc;
 
-    addLog(`[${state.currentIndex + 1}/${state.queue.length}] Opening: "${title}"`, 'info');
+      const title = doc.title || 'Untitled Video';
+      const cleanUrl = getCleanYouTubeUrl(doc.source_url || doc.url);
 
-    try {
-      // Step 1: Open YouTube tab and like the video
-      const likeResult = await likeVideoInTab(cleanUrl);
-      if (likeResult.alreadyLiked) {
-        addLog(`Already liked on YouTube: "${title}"`, 'info');
-      } else {
-        addLog(`Liked on YouTube: "${title}"`, 'success');
+      addLog(`[${index + 1}/${state.queue.length}] Opening: "${title}"`, 'info');
+
+      try {
+        const likeResult = await likeVideoInTab(cleanUrl);
+        if (likeResult.alreadyLiked) {
+          addLog(`Already liked on YouTube: "${title}"`, 'info');
+        } else {
+          addLog(`Liked on YouTube: "${title}"`, 'success');
+        }
+
+        await addTagToReadwise(token, doc, targetTag);
+        addLog(`Tagged in Readwise as "${targetTag}": "${title}"`, 'success');
+
+        state.completedCount++;
+      } catch (err) {
+        state.errorCount++;
+        addLog(`Error on "${title}": ${err.message}`, 'error');
       }
 
-      // Step 2: Tag the document in Readwise Reader
-      await addTagToReadwise(token, doc, targetTag);
-      addLog(`Tagged in Readwise as "${targetTag}": "${title}"`, 'success');
-
-      state.completedCount++;
-    } catch (err) {
-      state.errorCount++;
-      addLog(`Error on "${title}": ${err.message}`, 'error');
-    }
-
-    state.currentIndex++;
-
-    // Wait configured delay between videos to prevent anti-bot rate limits
-    if (state.status === 'running' && state.currentIndex < state.queue.length) {
-      await new Promise(r => setTimeout(r, delayMs));
+      if (state.status === 'running' && state.currentIndex < state.queue.length) {
+        await new Promise(r => setTimeout(r, delayMs));
+      }
     }
   }
+
+  const workers = [worker(1)];
+  if (concurrency > 1 && state.queue.length > 1) {
+    // Stagger worker 2 slightly so tabs don't fire at identical millisecond
+    await new Promise(r => setTimeout(r, 1200));
+    if (state.status === 'running' && state.currentIndex < state.queue.length) {
+      workers.push(worker(2));
+    }
+  }
+
+  await Promise.all(workers);
 
   if (state.status === 'running') {
     state.status = 'completed';
@@ -361,7 +543,6 @@ async function runQueue() {
 
     addLog(`All done! Processed ${state.completedCount} videos (${state.errorCount} errors).`, 'success');
 
-    // Notify user
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icons/icon128.png',
@@ -382,7 +563,16 @@ async function runQueue() {
 // Runtime message listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'GET_STATE') {
-    sendResponse({ ...state });
+    sendResponse({
+      status: state.status,
+      queue: state.queue,
+      currentIndex: state.currentIndex,
+      completedCount: state.completedCount,
+      errorCount: state.errorCount,
+      currentDoc: state.currentDoc,
+      logs: state.logs,
+      activeTabId: state.activeTabId,
+    });
     return true;
   }
 
@@ -393,6 +583,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({ success: true, data: result });
       } catch (err) {
         state.status = 'error';
+        sendResponse({ success: false, error: err.message });
+      }
+    });
+    return true;
+  }
+
+  if (request.action === 'SCAN_DUPLICATES') {
+    chrome.storage.sync.get(DEFAULT_SETTINGS, async (settings) => {
+      try {
+        const result = await scanDuplicates(settings.readwiseToken, request.locationFilter || 'archive', request.maxPages || 8);
+        sendResponse({ success: true, data: result });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    });
+    return true;
+  }
+
+  if (request.action === 'DELETE_DUPLICATES') {
+    chrome.storage.sync.get(DEFAULT_SETTINGS, async (settings) => {
+      try {
+        const result = await deleteDuplicateDocs(settings.readwiseToken, request.docIds);
+        sendResponse({ success: true, data: result });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    });
+    return true;
+  }
+
+  if (request.action === 'TAG_DUPLICATES') {
+    chrome.storage.sync.get(DEFAULT_SETTINGS, async (settings) => {
+      try {
+        const tagName = request.tagName || settings.duplicateTagName || 'duplicate';
+        const result = await tagDuplicateDocs(settings.readwiseToken, request.docIds, tagName);
+        sendResponse({ success: true, data: result });
+      } catch (err) {
         sendResponse({ success: false, error: err.message });
       }
     });
@@ -423,6 +650,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'CANCEL_QUEUE') {
     state.status = 'idle';
+    if (state.activeTabIds && state.activeTabIds.size > 0) {
+      for (const tid of state.activeTabIds) {
+        chrome.tabs.remove(tid).catch(() => {});
+      }
+      state.activeTabIds.clear();
+    }
     if (state.activeTabId) {
       chrome.tabs.remove(state.activeTabId).catch(() => {});
       state.activeTabId = null;

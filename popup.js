@@ -2,7 +2,7 @@
  * UI controller for the extension popup
  */
 
-// DOM Elements
+// DOM Elements - Setup & Navigation
 const tokenSection = document.getElementById('tokenSection');
 const mainWorkspace = document.getElementById('mainWorkspace');
 const inputToken = document.getElementById('inputToken');
@@ -11,6 +11,12 @@ const tokenError = document.getElementById('tokenError');
 const lblTagName = document.getElementById('lblTagName');
 const btnOptions = document.getElementById('btnOptions');
 
+const tabLiker = document.getElementById('tabLiker');
+const tabDuplicates = document.getElementById('tabDuplicates');
+const viewLiker = document.getElementById('viewLiker');
+const viewDuplicates = document.getElementById('viewDuplicates');
+
+// DOM Elements - Tab 1: Auto-Liker
 const btnScan = document.getElementById('btnScan');
 const scanStats = document.getElementById('scanStats');
 const statPending = document.getElementById('statPending');
@@ -33,8 +39,26 @@ const currentDocTitle = document.getElementById('currentDocTitle');
 const logList = document.getElementById('logList');
 const btnClearLog = document.getElementById('btnClearLog');
 
-// Local cached scanned items
+// DOM Elements - Tab 2: Duplicates
+const btnScanDuplicates = document.getElementById('btnScanDuplicates');
+const dupScope = document.getElementById('dupScope');
+const dupStats = document.getElementById('dupStats');
+const statDupGroups = document.getElementById('statDupGroups');
+const statDupDocs = document.getElementById('statDupDocs');
+const statDupScanned = document.getElementById('statDupScanned');
+
+const dupActionsSection = document.getElementById('dupActionsSection');
+const btnTagDuplicates = document.getElementById('btnTagDuplicates');
+const btnDeleteDuplicates = document.getElementById('btnDeleteDuplicates');
+
+const dupListSection = document.getElementById('dupListSection');
+const dupCountLabel = document.getElementById('dupCountLabel');
+const dupList = document.getElementById('dupList');
+
+// Local cached state
 let pendingList = [];
+let duplicateGroups = [];
+let totalDuplicateDocs = 0;
 let updateInterval = null;
 
 // Initialize popup
@@ -68,6 +92,24 @@ function showSetup(show) {
   }
 }
 
+// Tab navigation switcher
+function switchTab(tab) {
+  if (tab === 'liker') {
+    tabLiker.classList.add('active');
+    tabDuplicates.classList.remove('active');
+    viewLiker.classList.remove('hidden');
+    viewDuplicates.classList.add('hidden');
+  } else if (tab === 'duplicates') {
+    tabDuplicates.classList.add('active');
+    tabLiker.classList.remove('active');
+    viewDuplicates.classList.remove('hidden');
+    viewLiker.classList.add('hidden');
+  }
+}
+
+tabLiker.addEventListener('click', () => switchTab('liker'));
+tabDuplicates.addEventListener('click', () => switchTab('duplicates'));
+
 // Save & validate Readwise token
 btnSaveToken.addEventListener('click', async () => {
   const token = inputToken.value.trim();
@@ -92,14 +134,23 @@ btnSaveToken.addEventListener('click', async () => {
   });
 });
 
-// Scan archive for YouTube videos
+// Scan archive for YouTube videos to like
 btnScan.addEventListener('click', () => {
   btnScan.disabled = true;
-  btnScan.innerHTML = '<span class="spinner-small"></span> Scanning...';
+  btnScan.replaceChildren();
+  const spinner = document.createElement('span');
+  spinner.className = 'spinner-small';
+  btnScan.appendChild(spinner);
+  btnScan.appendChild(document.createTextNode(' Scanning...'));
 
   chrome.runtime.sendMessage({ action: 'SCAN_ARCHIVE' }, (res) => {
     btnScan.disabled = false;
-    btnScan.innerHTML = '<span class="btn-icon">🔍</span> Scan Archive';
+    btnScan.replaceChildren();
+    const icon = document.createElement('span');
+    icon.className = 'btn-icon';
+    icon.textContent = '🔍';
+    btnScan.appendChild(icon);
+    btnScan.appendChild(document.createTextNode(' Scan Archive'));
 
     if (res && res.success) {
       const data = res.data;
@@ -166,6 +217,205 @@ btnClearLog.addEventListener('click', () => {
   logList.appendChild(empty);
 });
 
+// TAB 2: Scan for duplicates
+btnScanDuplicates.addEventListener('click', () => {
+  btnScanDuplicates.disabled = true;
+  btnScanDuplicates.replaceChildren();
+  const spinner = document.createElement('span');
+  spinner.className = 'spinner-small';
+  btnScanDuplicates.appendChild(spinner);
+  btnScanDuplicates.appendChild(document.createTextNode(' Scanning...'));
+
+  const scope = dupScope.value || 'archive';
+  chrome.runtime.sendMessage({ action: 'SCAN_DUPLICATES', locationFilter: scope }, (res) => {
+    btnScanDuplicates.disabled = false;
+    btnScanDuplicates.replaceChildren();
+    const icon = document.createElement('span');
+    icon.className = 'btn-icon';
+    icon.textContent = '🔍';
+    btnScanDuplicates.appendChild(icon);
+    btnScanDuplicates.appendChild(document.createTextNode(' Scan Duplicates'));
+
+    if (res && res.success) {
+      const data = res.data;
+      duplicateGroups = data.duplicateGroups || [];
+      totalDuplicateDocs = data.totalDuplicateDocs || 0;
+
+      statDupGroups.textContent = duplicateGroups.length;
+      statDupDocs.textContent = totalDuplicateDocs;
+      statDupScanned.textContent = data.totalScanned || 0;
+      dupStats.classList.remove('hidden');
+
+      renderDuplicates();
+    } else {
+      alert(`Error scanning duplicates: ${res?.error || 'Unknown error'}`);
+    }
+  });
+});
+
+// Render duplicate groups in DOM
+function renderDuplicates() {
+  if (duplicateGroups.length === 0) {
+    dupActionsSection.classList.add('hidden');
+    dupListSection.classList.remove('hidden');
+    dupCountLabel.textContent = '0 found';
+    dupList.replaceChildren();
+    const emptyMsg = document.createElement('div');
+    emptyMsg.className = 'log-empty';
+    emptyMsg.textContent = 'No duplicate YouTube videos found!';
+    dupList.appendChild(emptyMsg);
+    return;
+  }
+
+  dupActionsSection.classList.remove('hidden');
+  dupListSection.classList.remove('hidden');
+  dupCountLabel.textContent = `${duplicateGroups.length} video(s), ${totalDuplicateDocs} redundant copies`;
+
+  btnDeleteDuplicates.textContent = `🗑️ Delete Newer Copies (${totalDuplicateDocs})`;
+  btnTagDuplicates.textContent = `🏷️ Tag All as #duplicate (${totalDuplicateDocs})`;
+
+  dupList.replaceChildren();
+
+  for (const group of duplicateGroups) {
+    const groupCard = document.createElement('div');
+    groupCard.className = 'dup-group';
+
+    const groupTitle = document.createElement('div');
+    groupTitle.className = 'dup-group-title';
+    groupTitle.title = group.title;
+    groupTitle.textContent = group.title;
+    groupCard.appendChild(groupTitle);
+
+    const itemsContainer = document.createElement('div');
+    itemsContainer.className = 'dup-items-container';
+
+    // 1. Keep Item (oldest or copy with notes)
+    const keepItem = document.createElement('div');
+    keepItem.className = 'dup-item';
+
+    const keepInfo = document.createElement('div');
+    keepInfo.className = 'dup-item-info';
+
+    const keepBadge = document.createElement('span');
+    keepBadge.className = 'badge badge-keep';
+    keepBadge.textContent = 'KEEP';
+    keepInfo.appendChild(keepBadge);
+
+    const keepDate = document.createElement('span');
+    keepDate.className = 'dup-date';
+    const kd = group.keepDoc.saved_at ? new Date(group.keepDoc.saved_at).toLocaleDateString() : 'Original';
+    keepDate.textContent = `Saved: ${kd}`;
+    keepInfo.appendChild(keepDate);
+
+    if (group.keepDoc.notes && group.keepDoc.notes.trim()) {
+      const notesFlag = document.createElement('span');
+      notesFlag.className = 'dup-notes-flag';
+      notesFlag.title = group.keepDoc.notes;
+      notesFlag.textContent = '📝 Notes';
+      keepInfo.appendChild(notesFlag);
+    }
+    keepItem.appendChild(keepInfo);
+    itemsContainer.appendChild(keepItem);
+
+    // 2. Duplicate Items (redundant copies to remove or tag)
+    for (const dup of group.duplicateDocs) {
+      const dupItem = document.createElement('div');
+      dupItem.className = 'dup-item';
+
+      const dupInfo = document.createElement('div');
+      dupInfo.className = 'dup-item-info';
+
+      const dupBadge = document.createElement('span');
+      dupBadge.className = 'badge badge-dup';
+      dupBadge.textContent = 'DELETE';
+      dupInfo.appendChild(dupBadge);
+
+      const dupDate = document.createElement('span');
+      dupDate.className = 'dup-date';
+      const dd = dup.saved_at ? new Date(dup.saved_at).toLocaleDateString() : 'Copy';
+      dupDate.textContent = `Saved: ${dd}`;
+      dupInfo.appendChild(dupDate);
+
+      if (dup.notes && dup.notes.trim()) {
+        const notesFlag = document.createElement('span');
+        notesFlag.className = 'dup-notes-flag';
+        notesFlag.title = dup.notes;
+        notesFlag.textContent = '📝 Notes';
+        dupInfo.appendChild(notesFlag);
+      }
+      dupItem.appendChild(dupInfo);
+      itemsContainer.appendChild(dupItem);
+    }
+
+    groupCard.appendChild(itemsContainer);
+    dupList.appendChild(groupCard);
+  }
+}
+
+// Tag all duplicates in Readwise
+btnTagDuplicates.addEventListener('click', () => {
+  const docIds = [];
+  for (const group of duplicateGroups) {
+    for (const dup of group.duplicateDocs) {
+      docIds.push(dup.id);
+    }
+  }
+
+  if (docIds.length === 0) return;
+
+  btnTagDuplicates.disabled = true;
+  btnTagDuplicates.textContent = 'Tagging...';
+
+  chrome.runtime.sendMessage({ action: 'TAG_DUPLICATES', docIds }, (res) => {
+    btnTagDuplicates.disabled = false;
+    btnTagDuplicates.textContent = `🏷️ Tag All as #duplicate (${totalDuplicateDocs})`;
+
+    if (res && res.success) {
+      alert(`Successfully tagged ${res.data.taggedCount} duplicate documents in Readwise!`);
+    } else {
+      alert(`Error tagging duplicates: ${res?.error || 'Unknown error'}`);
+    }
+  });
+});
+
+// Delete newer duplicate copies from Readwise
+btnDeleteDuplicates.addEventListener('click', () => {
+  const docIds = [];
+  for (const group of duplicateGroups) {
+    for (const dup of group.duplicateDocs) {
+      docIds.push(dup.id);
+    }
+  }
+
+  if (docIds.length === 0) return;
+
+  const confirmed = confirm(
+    `Are you sure you want to permanently delete ${docIds.length} duplicate copy(ies) from Readwise?\n\nThe oldest copies (and copies with user notes) will be kept.`
+  );
+  if (!confirmed) return;
+
+  btnDeleteDuplicates.disabled = true;
+  btnDeleteDuplicates.textContent = 'Deleting...';
+
+  chrome.runtime.sendMessage({ action: 'DELETE_DUPLICATES', docIds }, (res) => {
+    btnDeleteDuplicates.disabled = false;
+    btnDeleteDuplicates.textContent = '🗑️ Delete Newer Copies';
+
+    if (res && res.success) {
+      alert(`Successfully deleted ${res.data.deletedCount} duplicate documents from Readwise!`);
+      duplicateGroups = [];
+      totalDuplicateDocs = 0;
+      statDupGroups.textContent = '0';
+      statDupDocs.textContent = '0';
+      dupActionsSection.classList.add('hidden');
+      dupListSection.classList.add('hidden');
+      dupList.replaceChildren();
+    } else {
+      alert(`Error deleting duplicates: ${res?.error || 'Unknown error'}`);
+    }
+  });
+});
+
 // Query background for status and update UI
 function refreshState() {
   chrome.runtime.sendMessage({ action: 'GET_STATE' }, (state) => {
@@ -202,9 +452,9 @@ function refreshState() {
       btnResume.classList.add('hidden');
       btnCancel.classList.remove('hidden');
 
-      const total = state.queue.length;
-      const current = state.currentIndex + 1;
-      const pct = total > 0 ? Math.round((state.currentIndex / total) * 100) : 0;
+      const total = state.queue ? state.queue.length : 0;
+      const current = (state.currentIndex || 0) + 1;
+      const pct = total > 0 ? Math.round(((state.currentIndex || 0) / total) * 100) : 0;
 
       progressStatusText.textContent = 'Processing videos...';
       progressCounter.textContent = `${Math.min(current, total)} / ${total}`;
@@ -243,14 +493,6 @@ function refreshState() {
       btnCancel.classList.add('hidden');
     }
   });
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 window.addEventListener('DOMContentLoaded', init);

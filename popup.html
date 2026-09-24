@@ -14,7 +14,7 @@
         <img src="icons/icon48.png" alt="Logo" class="logo">
         <div>
           <h1>Readwise YouTube Liker</h1>
-          <p class="subtitle">Auto-like archived videos & tag as liked</p>
+          <p class="subtitle">Auto-like archived videos & detect duplicates</p>
         </div>
       </div>
       <button id="btnOptions" class="icon-button" title="Settings">⚙️</button>
@@ -47,92 +47,158 @@
         </div>
       </div>
 
-      <!-- Scan Controls & Stats -->
-      <section class="card scan-card">
-        <div class="scan-header">
-          <div>
-            <h3>Archive Scanner</h3>
-            <p class="card-desc">Find YouTube videos in your Readwise archive</p>
+      <!-- Navigation Tabs -->
+      <nav class="tab-bar">
+        <button id="tabLiker" class="tab-btn active">❤️ Auto-Liker</button>
+        <button id="tabDuplicates" class="tab-btn">🔍 Duplicates</button>
+      </nav>
+
+      <!-- TAB 1: AUTO-LIKER VIEW -->
+      <div id="viewLiker" class="tab-content">
+        <!-- Scan Controls & Stats -->
+        <section class="card scan-card">
+          <div class="scan-header">
+            <div>
+              <h3>Archive Scanner</h3>
+              <p class="card-desc">Find YouTube videos in your Readwise archive</p>
+            </div>
+            <button id="btnScan" class="btn btn-secondary">
+              <span class="btn-icon">🔍</span> Scan Archive
+            </button>
           </div>
-          <button id="btnScan" class="btn btn-secondary">
-            <span class="btn-icon">🔍</span> Scan Archive
-          </button>
-        </div>
 
-        <div id="scanStats" class="stats-grid hidden">
-          <div class="stat-box">
-            <span class="stat-value" id="statPending">0</span>
-            <span class="stat-label">Need Liking</span>
+          <div id="scanStats" class="stats-grid hidden">
+            <div class="stat-box">
+              <span class="stat-value" id="statPending">0</span>
+              <span class="stat-label">Need Liking</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value" id="statAlreadyLiked">0</span>
+              <span class="stat-label">Already Liked</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value" id="statTotal">0</span>
+              <span class="stat-label">Total Found</span>
+            </div>
           </div>
-          <div class="stat-box">
-            <span class="stat-value" id="statAlreadyLiked">0</span>
-            <span class="stat-label">Already Liked</span>
+        </section>
+
+        <!-- Execution Controls -->
+        <section id="actionSection" class="card action-card hidden">
+          <div class="batch-select-row">
+            <label for="batchSelect">Batch size:</label>
+            <select id="batchSelect">
+              <option value="10">Next 10 videos</option>
+              <option value="25" selected>Next 25 videos</option>
+              <option value="50">Next 50 videos</option>
+              <option value="0">All pending videos</option>
+            </select>
           </div>
-          <div class="stat-box">
-            <span class="stat-value" id="statTotal">0</span>
-            <span class="stat-label">Total Found</span>
+
+          <div class="queue-button-group">
+            <button id="btnStart" class="btn btn-primary btn-large">
+              ▶ Start Liking & Tagging
+            </button>
+            <button id="btnPause" class="btn btn-warning hidden">
+              ⏸ Pause
+            </button>
+            <button id="btnResume" class="btn btn-primary hidden">
+              ▶ Resume
+            </button>
+            <button id="btnCancel" class="btn btn-danger hidden">
+              ⏹ Stop
+            </button>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Execution Controls -->
-      <section id="actionSection" class="card action-card hidden">
-        <div class="batch-select-row">
-          <label for="batchSelect">Batch size:</label>
-          <select id="batchSelect">
-            <option value="10">Next 10 videos</option>
-            <option value="25" selected>Next 25 videos</option>
-            <option value="50">Next 50 videos</option>
-            <option value="0">All pending videos</option>
-          </select>
-        </div>
+        <!-- Active Progress Card (shown when running or paused) -->
+        <section id="progressSection" class="card progress-card hidden">
+          <div class="progress-header">
+            <span class="progress-title" id="progressStatusText">Processing videos...</span>
+            <span class="progress-counter" id="progressCounter">0 / 0</span>
+          </div>
+          <div class="progress-bar-container">
+            <div id="progressBar" class="progress-bar" style="width: 0%;"></div>
+          </div>
+          <div class="current-item-row" id="currentItemRow">
+            <div class="spinner-small"></div>
+            <span class="current-item-title" id="currentDocTitle">Opening YouTube...</span>
+          </div>
+        </section>
 
-        <div class="queue-button-group">
-          <button id="btnStart" class="btn btn-primary btn-large">
-            ▶ Start Liking & Tagging
-          </button>
-          <button id="btnPause" class="btn btn-warning hidden">
-            ⏸ Pause
-          </button>
-          <button id="btnResume" class="btn btn-primary hidden">
-            ▶ Resume
-          </button>
-          <button id="btnCancel" class="btn btn-danger hidden">
-            ⏹ Stop
-          </button>
-        </div>
-      </section>
+        <!-- Activity Log -->
+        <section class="card log-card">
+          <div class="log-header">
+            <h4>Activity Log</h4>
+            <button id="btnClearLog" class="btn-text">Clear</button>
+          </div>
+          <div id="logList" class="log-list">
+            <div class="log-empty">No activity yet. Click "Scan Archive" to begin.</div>
+          </div>
+        </section>
+      </div>
 
-      <!-- Active Progress Card (shown when running or paused) -->
-      <section id="progressSection" class="card progress-card hidden">
-        <div class="progress-header">
-          <span class="progress-title" id="progressStatusText">Processing videos...</span>
-          <span class="progress-counter" id="progressCounter">0 / 0</span>
-        </div>
-        <div class="progress-bar-container">
-          <div id="progressBar" class="progress-bar" style="width: 0%;"></div>
-        </div>
-        <div class="current-item-row" id="currentItemRow">
-          <div class="spinner-small"></div>
-          <span class="current-item-title" id="currentDocTitle">Opening YouTube...</span>
-        </div>
-      </section>
+      <!-- TAB 2: DUPLICATES VIEW -->
+      <div id="viewDuplicates" class="tab-content hidden">
+        <section class="card scan-card">
+          <div class="scan-header">
+            <div>
+              <h3>Duplicate Detector</h3>
+              <p class="card-desc">Find YouTube videos saved more than once</p>
+            </div>
+            <button id="btnScanDuplicates" class="btn btn-secondary">
+              <span class="btn-icon">🔍</span> Scan Duplicates
+            </button>
+          </div>
 
-      <!-- Activity Log -->
-      <section class="card log-card">
-        <div class="log-header">
-          <h4>Activity Log</h4>
-          <button id="btnClearLog" class="btn-text">Clear</button>
-        </div>
-        <div id="logList" class="log-list">
-          <div class="log-empty">No activity yet. Click "Scan Archive" to begin.</div>
-        </div>
-      </section>
+          <div class="dup-scope-row">
+            <label for="dupScope">Scan scope:</label>
+            <select id="dupScope">
+              <option value="archive" selected>Archive Only</option>
+              <option value="all">Entire Library (Inbox + Later + Archive)</option>
+            </select>
+          </div>
+
+          <div id="dupStats" class="stats-grid hidden">
+            <div class="stat-box">
+              <span class="stat-value" id="statDupGroups">0</span>
+              <span class="stat-label">Duplicate Videos</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value" id="statDupDocs">0</span>
+              <span class="stat-label">Redundant Copies</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-value" id="statDupScanned">0</span>
+              <span class="stat-label">Total Scanned</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="dupActionsSection" class="card action-card hidden">
+          <div class="queue-button-group">
+            <button id="btnTagDuplicates" class="btn btn-secondary">
+              🏷️ Tag All as #duplicate
+            </button>
+            <button id="btnDeleteDuplicates" class="btn btn-danger">
+              🗑️ Delete Newer Copies
+            </button>
+          </div>
+        </section>
+
+        <section id="dupListSection" class="card dup-list-card hidden">
+          <div class="log-header">
+            <h4>Duplicates Found</h4>
+            <span id="dupCountLabel" class="card-desc"></span>
+          </div>
+          <div id="dupList" class="dup-list"></div>
+        </section>
+      </div>
     </main>
 
     <!-- Footer -->
     <footer class="app-footer">
-      <span>Auto-likes in muted background tabs • Safe rate-limiting</span>
+      <span>Auto-likes in background • Duplicate cleaner • Multi-worker</span>
     </footer>
   </div>
 
