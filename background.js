@@ -23,6 +23,17 @@ const state = {
   logs: [],
   activeTabId: null,
   activeTabIds: new Set(),
+  dupProgress: {
+    active: false,
+    action: null,
+    total: 0,
+    current: 0,
+    currentTitle: '',
+    successCount: 0,
+    errorCount: 0,
+    completed: false,
+    message: '',
+  },
 };
 
 function addLog(message, type = 'info') {
@@ -254,61 +265,161 @@ async function scanDuplicates(token, locationFilter = 'archive', maxPages = 8) {
   };
 }
 
-// Delete duplicate documents via Readwise DELETE API
-async function deleteDuplicateDocs(token, docIds) {
+// Delete duplicate documents via Readwise DELETE API with live progress and rate limiting
+async function deleteDuplicateDocs(token, items) {
   if (!token) throw new Error('Readwise token missing.');
-  if (!docIds || docIds.length === 0) return { deletedCount: 0 };
+  if (!items || items.length === 0) return { deletedCount: 0, errors: [] };
 
-  addLog(`Deleting ${docIds.length} duplicate document(s)...`, 'info');
+  const normItems = items.map(item => (typeof item === 'string' ? { id: item, title: item } : item));
+  const total = normItems.length;
+
+  state.dupProgress = {
+    active: true,
+    action: 'delete',
+    total,
+    current: 0,
+    currentTitle: normItems[0].title || 'Starting...',
+    successCount: 0,
+    errorCount: 0,
+    completed: false,
+    message: `Starting deletion of ${total} duplicate copy(ies)...`,
+  };
+
+  addLog(`Starting deletion of ${total} duplicate document(s)...`, 'info');
   let deletedCount = 0;
   const errors = [];
 
-  for (const id of docIds) {
+  for (let i = 0; i < total; i++) {
+    const item = normItems[i];
+    const id = item.id;
+    const title = item.title || 'Untitled Document';
+
+    state.dupProgress.current = i + 1;
+    state.dupProgress.currentTitle = title;
+    state.dupProgress.message = `Deleting [${i + 1}/${total}]: "${title}"`;
+
+    addLog(`[${i + 1}/${total}] Deleting duplicate: "${title}"...`, 'info');
+
     try {
-      const res = await fetch(`https://readwise.io/api/v3/delete/${id}/`, {
+      let res = await fetch(`https://readwise.io/api/v3/delete/${id}/`, {
         method: 'DELETE',
         headers: { 'Authorization': `Token ${token}` },
       });
+
+      // Handle 429 Rate Limit with backoff
+      if (res.status === 429) {
+        const retryAfter = parseInt(res.headers.get('Retry-After') || '4', 10);
+        addLog(`Readwise rate limit reached. Waiting ${retryAfter}s before retrying "${title}"...`, 'warn');
+        await new Promise(r => setTimeout(r, retryAfter * 1000));
+        res = await fetch(`https://readwise.io/api/v3/delete/${id}/`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Token ${token}` },
+        });
+      }
+
       if (res.ok || res.status === 204 || res.status === 404) {
         deletedCount++;
+        state.dupProgress.successCount = deletedCount;
+        addLog(`✓ Deleted from Readwise: "${title}"`, 'success');
       } else {
-        errors.push(`Failed to delete ${id}: ${res.status}`);
+        const errBody = await res.text().catch(() => '');
+        const msg = `HTTP ${res.status}${errBody ? ': ' + errBody.slice(0, 100) : ''}`;
+        errors.push(`${title}: ${msg}`);
+        state.dupProgress.errorCount = errors.length;
+        addLog(`✗ Failed to delete "${title}": ${msg}`, 'error');
       }
     } catch (err) {
-      errors.push(`Error deleting ${id}: ${err.message}`);
+      errors.push(`${title}: ${err.message}`);
+      state.dupProgress.errorCount = errors.length;
+      addLog(`✗ Network error deleting "${title}": ${err.message}`, 'error');
+    }
+
+    // Rate-limit safety pause between requests
+    if (i < total - 1) {
+      await new Promise(r => setTimeout(r, 650));
     }
   }
 
-  addLog(`Successfully deleted ${deletedCount}/${docIds.length} duplicates.`, 'success');
-  return { deletedCount, errors };
+  state.dupProgress.active = false;
+  state.dupProgress.completed = true;
+  state.dupProgress.currentTitle = 'Finished';
+  state.dupProgress.message = `Completed: ${deletedCount} deleted, ${errors.length} errors.`;
+
+  if (errors.length === 0) {
+    addLog(`All done! Successfully deleted ${deletedCount}/${total} duplicate(s).`, 'success');
+  } else {
+    addLog(`Finished with errors: Deleted ${deletedCount}/${total} (${errors.length} failed).`, 'error');
+  }
+
+  return { deletedCount, errors, total };
 }
 
 // Tag duplicate documents with a specific tag (e.g. duplicate)
-async function tagDuplicateDocs(token, docIds, tagName = 'duplicate') {
+async function tagDuplicateDocs(token, items, tagName = 'duplicate') {
   if (!token) throw new Error('Readwise token missing.');
-  if (!docIds || docIds.length === 0) return { taggedCount: 0 };
+  if (!items || items.length === 0) return { taggedCount: 0, errors: [] };
 
-  addLog(`Tagging ${docIds.length} duplicate documents as #${tagName}...`, 'info');
+  const normItems = items.map(item => (typeof item === 'string' ? { id: item, title: item } : item));
+  const total = normItems.length;
 
-  const updates = docIds.map(id => ({ id, tags: [tagName] }));
+  state.dupProgress = {
+    active: true,
+    action: 'tag',
+    total,
+    current: 0,
+    currentTitle: normItems[0].title || 'Starting...',
+    successCount: 0,
+    errorCount: 0,
+    completed: false,
+    message: `Tagging ${total} duplicates as #${tagName}...`,
+  };
+
+  addLog(`Tagging ${total} duplicate documents as #${tagName}...`, 'info');
+
+  const updates = normItems.map(item => ({ id: item.id, tags: [tagName] }));
   let taggedCount = 0;
-  for (let i = 0; i < updates.length; i += 40) {
-    const chunk = updates.slice(i, i + 40);
-    const res = await fetch('https://readwise.io/api/v3/bulk_update/', {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Token ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ updates: chunk }),
-    });
-    if (res.ok) {
-      taggedCount += chunk.length;
+  const errors = [];
+
+  for (let i = 0; i < updates.length; i += 25) {
+    const chunk = updates.slice(i, i + 25);
+    state.dupProgress.current = Math.min(i + chunk.length, total);
+    state.dupProgress.message = `Tagging batch ${Math.floor(i / 25) + 1} (${chunk.length} items)...`;
+
+    try {
+      const res = await fetch('https://readwise.io/api/v3/bulk_update/', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ updates: chunk }),
+      });
+      if (res.ok) {
+        taggedCount += chunk.length;
+        state.dupProgress.successCount = taggedCount;
+        addLog(`✓ Tagged batch of ${chunk.length} duplicates as #${tagName}.`, 'success');
+      } else {
+        const errBody = await res.text().catch(() => '');
+        errors.push(`Batch failed: HTTP ${res.status} ${errBody}`);
+        state.dupProgress.errorCount += chunk.length;
+        addLog(`✗ Failed to tag batch: HTTP ${res.status}`, 'error');
+      }
+    } catch (err) {
+      errors.push(`Network error: ${err.message}`);
+      state.dupProgress.errorCount += chunk.length;
+      addLog(`✗ Network error tagging duplicates: ${err.message}`, 'error');
+    }
+
+    if (i + 25 < updates.length) {
+      await new Promise(r => setTimeout(r, 600));
     }
   }
 
-  addLog(`Successfully tagged ${taggedCount} duplicates as #${tagName}.`, 'success');
-  return { taggedCount };
+  state.dupProgress.active = false;
+  state.dupProgress.completed = true;
+  state.dupProgress.message = `Finished: Tagged ${taggedCount}/${total} documents.`;
+
+  return { taggedCount, errors, total };
 }
 
 // Tag a document in Readwise Reader
@@ -572,6 +683,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       currentDoc: state.currentDoc,
       logs: state.logs,
       activeTabId: state.activeTabId,
+      dupProgress: state.dupProgress,
     });
     return true;
   }
@@ -604,7 +716,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'DELETE_DUPLICATES') {
     chrome.storage.sync.get(DEFAULT_SETTINGS, async (settings) => {
       try {
-        const result = await deleteDuplicateDocs(settings.readwiseToken, request.docIds);
+        const items = request.items || request.docIds || [];
+        const result = await deleteDuplicateDocs(settings.readwiseToken, items);
         sendResponse({ success: true, data: result });
       } catch (err) {
         sendResponse({ success: false, error: err.message });
@@ -617,7 +730,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     chrome.storage.sync.get(DEFAULT_SETTINGS, async (settings) => {
       try {
         const tagName = request.tagName || settings.duplicateTagName || 'duplicate';
-        const result = await tagDuplicateDocs(settings.readwiseToken, request.docIds, tagName);
+        const items = request.items || request.docIds || [];
+        const result = await tagDuplicateDocs(settings.readwiseToken, items, tagName);
         sendResponse({ success: true, data: result });
       } catch (err) {
         sendResponse({ success: false, error: err.message });

@@ -580,6 +580,68 @@ select:focus {
   color: #555;
 }
 
+/* Confirmation Card & Banners */
+.confirm-card {
+  border-color: #ff453a !important;
+  background: rgba(255, 69, 58, 0.08) !important;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.confirm-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.confirm-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.confirm-text strong {
+  color: #ff453a;
+  font-size: 12px;
+  display: block;
+}
+
+.confirm-text p {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-small {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.status-banner {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.status-banner.success {
+  background: rgba(48, 209, 88, 0.15);
+  border: 1px solid rgba(48, 209, 88, 0.4);
+  color: var(--accent-green);
+}
+
+.status-banner.error {
+  background: rgba(255, 69, 58, 0.15);
+  border: 1px solid rgba(255, 69, 58, 0.4);
+  color: #ff453a;
+}
+
 .hidden {
   display: none !important;
 }

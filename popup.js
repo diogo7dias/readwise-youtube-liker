@@ -51,6 +51,19 @@ const dupActionsSection = document.getElementById('dupActionsSection');
 const btnTagDuplicates = document.getElementById('btnTagDuplicates');
 const btnDeleteDuplicates = document.getElementById('btnDeleteDuplicates');
 
+const dupConfirmSection = document.getElementById('dupConfirmSection');
+const dupConfirmDesc = document.getElementById('dupConfirmDesc');
+const btnConfirmDelete = document.getElementById('btnConfirmDelete');
+const btnCancelConfirm = document.getElementById('btnCancelConfirm');
+
+const dupProgressSection = document.getElementById('dupProgressSection');
+const dupProgressTitle = document.getElementById('dupProgressTitle');
+const dupProgressCounter = document.getElementById('dupProgressCounter');
+const dupProgressBar = document.getElementById('dupProgressBar');
+const dupCurrentTitle = document.getElementById('dupCurrentTitle');
+
+const dupStatusBanner = document.getElementById('dupStatusBanner');
+
 const dupListSection = document.getElementById('dupListSection');
 const dupCountLabel = document.getElementById('dupCountLabel');
 const dupList = document.getElementById('dupList');
@@ -226,6 +239,9 @@ btnScanDuplicates.addEventListener('click', () => {
   btnScanDuplicates.appendChild(spinner);
   btnScanDuplicates.appendChild(document.createTextNode(' Scanning...'));
 
+  dupStatusBanner.classList.add('hidden');
+  dupConfirmSection.classList.add('hidden');
+
   const scope = dupScope.value || 'archive';
   chrome.runtime.sendMessage({ action: 'SCAN_DUPLICATES', locationFilter: scope }, (res) => {
     btnScanDuplicates.disabled = false;
@@ -248,7 +264,9 @@ btnScanDuplicates.addEventListener('click', () => {
 
       renderDuplicates();
     } else {
-      alert(`Error scanning duplicates: ${res?.error || 'Unknown error'}`);
+      dupStatusBanner.className = 'status-banner error';
+      dupStatusBanner.textContent = `Error scanning duplicates: ${res?.error || 'Unknown error'}`;
+      dupStatusBanner.classList.remove('hidden');
     }
   });
 });
@@ -257,6 +275,7 @@ btnScanDuplicates.addEventListener('click', () => {
 function renderDuplicates() {
   if (duplicateGroups.length === 0) {
     dupActionsSection.classList.add('hidden');
+    dupConfirmSection.classList.add('hidden');
     dupListSection.classList.remove('hidden');
     dupCountLabel.textContent = '0 found';
     dupList.replaceChildren();
@@ -268,6 +287,7 @@ function renderDuplicates() {
   }
 
   dupActionsSection.classList.remove('hidden');
+  dupConfirmSection.classList.add('hidden');
   dupListSection.classList.remove('hidden');
   dupCountLabel.textContent = `${duplicateGroups.length} video(s), ${totalDuplicateDocs} redundant copies`;
 
@@ -352,66 +372,103 @@ function renderDuplicates() {
   }
 }
 
-// Tag all duplicates in Readwise
-btnTagDuplicates.addEventListener('click', () => {
-  const docIds = [];
+// Collect redundant copy items across all duplicate groups
+function getDuplicateItems() {
+  const items = [];
   for (const group of duplicateGroups) {
     for (const dup of group.duplicateDocs) {
-      docIds.push(dup.id);
+      items.push({
+        id: dup.id,
+        title: dup.title || group.title,
+      });
     }
   }
+  return items;
+}
 
-  if (docIds.length === 0) return;
+// Tag all duplicates in Readwise
+btnTagDuplicates.addEventListener('click', () => {
+  const items = getDuplicateItems();
+  if (items.length === 0) return;
 
   btnTagDuplicates.disabled = true;
   btnTagDuplicates.textContent = 'Tagging...';
+  dupStatusBanner.classList.add('hidden');
 
-  chrome.runtime.sendMessage({ action: 'TAG_DUPLICATES', docIds }, (res) => {
+  chrome.runtime.sendMessage({ action: 'TAG_DUPLICATES', items }, (res) => {
     btnTagDuplicates.disabled = false;
-    btnTagDuplicates.textContent = `🏷️ Tag All as #duplicate (${totalDuplicateDocs})`;
+    btnTagDuplicates.textContent = `🏷️ Tag All as #duplicate (${items.length})`;
 
     if (res && res.success) {
-      alert(`Successfully tagged ${res.data.taggedCount} duplicate documents in Readwise!`);
+      dupStatusBanner.className = 'status-banner success';
+      dupStatusBanner.textContent = `✓ Successfully tagged ${res.data.taggedCount} duplicate document(s) in Readwise!`;
+      dupStatusBanner.classList.remove('hidden');
     } else {
-      alert(`Error tagging duplicates: ${res?.error || 'Unknown error'}`);
+      dupStatusBanner.className = 'status-banner error';
+      dupStatusBanner.textContent = `✗ Error tagging duplicates: ${res?.error || 'Unknown error'}`;
+      dupStatusBanner.classList.remove('hidden');
     }
   });
 });
 
-// Delete newer duplicate copies from Readwise
+// Click "Delete Newer Copies" -> Open in-card confirmation
 btnDeleteDuplicates.addEventListener('click', () => {
-  const docIds = [];
-  for (const group of duplicateGroups) {
-    for (const dup of group.duplicateDocs) {
-      docIds.push(dup.id);
-    }
-  }
+  const items = getDuplicateItems();
+  if (items.length === 0) return;
 
-  if (docIds.length === 0) return;
+  dupConfirmDesc.textContent = `Permanently delete ${items.length} duplicate copy(ies) from Readwise? Oldest copies and notes will be kept.`;
+  dupConfirmSection.classList.remove('hidden');
+  dupActionsSection.classList.add('hidden');
+  dupStatusBanner.classList.add('hidden');
+});
 
-  const confirmed = confirm(
-    `Are you sure you want to permanently delete ${docIds.length} duplicate copy(ies) from Readwise?\n\nThe oldest copies (and copies with user notes) will be kept.`
-  );
-  if (!confirmed) return;
+// Cancel confirmation
+btnCancelConfirm.addEventListener('click', () => {
+  dupConfirmSection.classList.add('hidden');
+  dupActionsSection.classList.remove('hidden');
+});
 
-  btnDeleteDuplicates.disabled = true;
-  btnDeleteDuplicates.textContent = 'Deleting...';
+// Confirm deletion -> Execute with live progress
+btnConfirmDelete.addEventListener('click', () => {
+  const items = getDuplicateItems();
+  if (items.length === 0) return;
 
-  chrome.runtime.sendMessage({ action: 'DELETE_DUPLICATES', docIds }, (res) => {
-    btnDeleteDuplicates.disabled = false;
-    btnDeleteDuplicates.textContent = '🗑️ Delete Newer Copies';
+  dupConfirmSection.classList.add('hidden');
+  dupProgressSection.classList.remove('hidden');
+  dupProgressTitle.textContent = `Deleting ${items.length} duplicates...`;
+  dupProgressCounter.textContent = `0 / ${items.length}`;
+  dupProgressBar.style.width = '0%';
+  dupCurrentTitle.textContent = 'Connecting to Readwise...';
+  dupStatusBanner.classList.add('hidden');
+
+  chrome.runtime.sendMessage({ action: 'DELETE_DUPLICATES', items }, (res) => {
+    dupProgressSection.classList.add('hidden');
 
     if (res && res.success) {
-      alert(`Successfully deleted ${res.data.deletedCount} duplicate documents from Readwise!`);
+      const data = res.data;
+      const count = data.deletedCount || 0;
+      const errCount = (data.errors || []).length;
+
+      if (errCount > 0) {
+        dupStatusBanner.className = 'status-banner error';
+        dupStatusBanner.textContent = `Finished with errors: Deleted ${count} of ${data.total} copies. (${errCount} errors: ${data.errors[0]})`;
+      } else {
+        dupStatusBanner.className = 'status-banner success';
+        dupStatusBanner.textContent = `✓ Successfully deleted all ${count} duplicate copy(ies) from Readwise!`;
+      }
+      dupStatusBanner.classList.remove('hidden');
+
+      // Refresh duplicate list
       duplicateGroups = [];
       totalDuplicateDocs = 0;
       statDupGroups.textContent = '0';
       statDupDocs.textContent = '0';
-      dupActionsSection.classList.add('hidden');
-      dupListSection.classList.add('hidden');
-      dupList.replaceChildren();
+      renderDuplicates();
     } else {
-      alert(`Error deleting duplicates: ${res?.error || 'Unknown error'}`);
+      dupStatusBanner.className = 'status-banner error';
+      dupStatusBanner.textContent = `✗ Error deleting duplicates: ${res?.error || 'Unknown error'}`;
+      dupStatusBanner.classList.remove('hidden');
+      dupActionsSection.classList.remove('hidden');
     }
   });
 });
@@ -421,7 +478,7 @@ function refreshState() {
   chrome.runtime.sendMessage({ action: 'GET_STATE' }, (state) => {
     if (!state) return;
 
-    // Render Logs safely without innerHTML
+    // 1. Universal Activity Log update
     if (state.logs && state.logs.length > 0) {
       logList.replaceChildren();
       for (const entry of state.logs) {
@@ -442,7 +499,21 @@ function refreshState() {
       }
     }
 
-    // UI state transitions
+    // 2. Tab 2: Duplicates progress tracking
+    if (state.dupProgress && state.dupProgress.active) {
+      const dp = state.dupProgress;
+      dupProgressSection.classList.remove('hidden');
+      dupActionsSection.classList.add('hidden');
+      dupConfirmSection.classList.add('hidden');
+
+      dupProgressTitle.textContent = dp.message || 'Processing duplicates...';
+      dupProgressCounter.textContent = `${dp.current} / ${dp.total}`;
+      const pct = dp.total > 0 ? Math.round((dp.current / dp.total) * 100) : 0;
+      dupProgressBar.style.width = `${pct}%`;
+      dupCurrentTitle.textContent = dp.currentTitle || 'Working...';
+    }
+
+    // 3. Tab 1: Auto-Liker queue transitions
     if (state.status === 'running') {
       progressSection.classList.remove('hidden');
       actionSection.classList.remove('hidden');

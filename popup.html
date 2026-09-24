@@ -126,16 +126,6 @@
           </div>
         </section>
 
-        <!-- Activity Log -->
-        <section class="card log-card">
-          <div class="log-header">
-            <h4>Activity Log</h4>
-            <button id="btnClearLog" class="btn-text">Clear</button>
-          </div>
-          <div id="logList" class="log-list">
-            <div class="log-empty">No activity yet. Click "Scan Archive" to begin.</div>
-          </div>
-        </section>
       </div>
 
       <!-- TAB 2: DUPLICATES VIEW -->
@@ -175,6 +165,7 @@
           </div>
         </section>
 
+        <!-- Actions -->
         <section id="dupActionsSection" class="card action-card hidden">
           <div class="queue-button-group">
             <button id="btnTagDuplicates" class="btn btn-secondary">
@@ -186,6 +177,39 @@
           </div>
         </section>
 
+        <!-- In-card confirmation before deleting (no browser modal dialog) -->
+        <section id="dupConfirmSection" class="card confirm-card hidden">
+          <div class="confirm-content">
+            <span class="confirm-icon">⚠️</span>
+            <div class="confirm-text">
+              <strong>Confirm Permanent Deletion</strong>
+              <p id="dupConfirmDesc">Permanently delete duplicate copies from Readwise?</p>
+            </div>
+          </div>
+          <div class="confirm-actions">
+            <button id="btnCancelConfirm" class="btn btn-secondary btn-small">Cancel</button>
+            <button id="btnConfirmDelete" class="btn btn-danger btn-small">Yes, Delete Permanently</button>
+          </div>
+        </section>
+
+        <!-- Duplicates Live Progress -->
+        <section id="dupProgressSection" class="card progress-card hidden">
+          <div class="progress-header">
+            <span class="progress-title" id="dupProgressTitle">Deleting duplicates...</span>
+            <span class="progress-counter" id="dupProgressCounter">0 / 0</span>
+          </div>
+          <div class="progress-bar-container">
+            <div id="dupProgressBar" class="progress-bar" style="width: 0%;"></div>
+          </div>
+          <div class="current-item-row" id="dupCurrentItemRow">
+            <div class="spinner-small"></div>
+            <span class="current-item-title" id="dupCurrentTitle">Connecting to Readwise...</span>
+          </div>
+        </section>
+
+        <!-- Status / Result Banner -->
+        <div id="dupStatusBanner" class="status-banner hidden"></div>
+
         <section id="dupListSection" class="card dup-list-card hidden">
           <div class="log-header">
             <h4>Duplicates Found</h4>
@@ -194,6 +218,17 @@
           <div id="dupList" class="dup-list"></div>
         </section>
       </div>
+
+      <!-- Universal Activity Log (shared across both tabs) -->
+      <section class="card log-card">
+        <div class="log-header">
+          <h4>Activity Log</h4>
+          <button id="btnClearLog" class="btn-text">Clear</button>
+        </div>
+        <div id="logList" class="log-list">
+          <div class="log-empty">No activity yet. Click "Scan Archive" or "Scan Duplicates" to begin.</div>
+        </div>
+      </section>
     </main>
 
     <!-- Footer -->
