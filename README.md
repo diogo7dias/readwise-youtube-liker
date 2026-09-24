@@ -1,5 +1,7 @@
 # Readwise YouTube Liker
 
+[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20on%20Ko--fi-F16061?style=flat&logo=ko-fi&logoColor=white)](https://ko-fi.com/d7d7m)
+
 A browser extension for **Zen Browser**, **Firefox**, and **Chrome** that bridges **Readwise Reader** and **YouTube**.
 
 Automatically opens archived YouTube videos in muted background tabs to **Like** them on YouTube (marking them permanently as watched in your YouTube history), tags them as **`liked`** in Readwise Reader, and detects & cleans duplicate saved videos across your library.
@@ -75,6 +77,15 @@ The extension operates with **zero data collection**, zero external servers, and
 
 ---
 
+## Support
+
+If this extension saves you time or helps clean up your library, you can support further development:
+
+[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/d7d7m)
+
+---
+
 ## License
 
 MIT
+
