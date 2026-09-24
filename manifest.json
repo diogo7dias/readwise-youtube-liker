@@ -52,6 +52,18 @@
         "https://m.youtube.com/*"
       ],
       "js": [
+        "inject_visibility.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*",
+        "https://m.youtube.com/*"
+      ],
+      "js": [
         "youtube_content.js"
       ],
       "run_at": "document_start"

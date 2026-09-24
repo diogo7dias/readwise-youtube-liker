@@ -195,10 +195,24 @@ function likeVideoInTab(cleanUrl) {
     const sep = cleanUrl.includes('?') ? '&' : '?';
     const targetUrl = `${cleanUrl}${sep}rw_autolike=1`;
 
+    let wakeTimer = null;
+    let originalTabId = null;
+
+    try {
+      const [current] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (current) originalTabId = current.id;
+    } catch (_) {}
+
     const cleanup = async () => {
       chrome.runtime.onMessage.removeListener(messageListener);
       chrome.tabs.onUpdated.removeListener(statusListener);
       if (timeoutId) clearTimeout(timeoutId);
+      if (wakeTimer) clearTimeout(wakeTimer);
+      if (originalTabId) {
+        try {
+          await chrome.tabs.update(originalTabId, { active: true });
+        } catch (_) {}
+      }
       if (tabId) {
         try {
           await chrome.tabs.remove(tabId);
@@ -234,7 +248,22 @@ function likeVideoInTab(cleanUrl) {
       done(new Error('Timed out waiting for YouTube tab to load and like.'));
     }, 24000);
 
-    // 2. Secondary backup: onUpdated complete trigger
+    // 2. Fallback: Wake background tab if delayed past 4.5s
+    wakeTimer = setTimeout(async () => {
+      if (resolved || !tabId) return;
+      try {
+        await chrome.tabs.update(tabId, { active: true });
+        setTimeout(async () => {
+          if (originalTabId) {
+            try {
+              await chrome.tabs.update(originalTabId, { active: true });
+            } catch (_) {}
+          }
+        }, 1400);
+      } catch (_) {}
+    }, 4500);
+
+    // 3. Secondary backup: onUpdated complete trigger
     const statusListener = async (updatedTabId, changeInfo, tabInfo) => {
       if (updatedTabId === tabId && changeInfo.status === 'complete') {
         const url = tabInfo?.url || '';
@@ -246,10 +275,7 @@ function likeVideoInTab(cleanUrl) {
 
         try {
           chrome.tabs.sendMessage(tabId, { action: 'EXECUTE_LIKE' }, (response) => {
-            if (chrome.runtime.lastError) {
-              // Content script will self-execute via rw_autolike=1
-              return;
-            }
+            if (chrome.runtime.lastError) return;
             if (response && response.success) {
               done(null, response);
             } else if (response && !response.success) {
