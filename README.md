@@ -69,6 +69,12 @@ Click the ⚙️ gear icon in the popup to configure:
 
 ---
 
+## Privacy
+
+The extension operates with **zero data collection**, zero external servers, and zero telemetry. API tokens stay encrypted in your local browser storage. Read the complete [Privacy Policy](PRIVACY.md).
+
+---
+
 ## License
 
 MIT

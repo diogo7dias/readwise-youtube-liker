@@ -39,7 +39,6 @@
   "permissions": [
     "storage",
     "tabs",
-    "scripting",
     "notifications"
   ],
   "host_permissions": [
