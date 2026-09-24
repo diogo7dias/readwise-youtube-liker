@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Readwise YouTube Liker - Icon Mockups</title>
+  <style>
+    :root {
+      --bg: #0d0d10;
+      --card-bg: #161619;
+      --card-border: #28282d;
+      --text: #f0f0f3;
+      --text-muted: #8a8a93;
+      --accent-red: #ff2a38;
+      --accent-yellow: #f5a623;
+      --accent-bg: #221415;
+      --accent-ink: #ff8a93;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 40px 24px 80px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 36px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 24px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--accent-bg);
+      color: var(--accent-ink);
+      border: 1px solid rgba(255, 42, 56, 0.3);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .mockup-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .mockup-card:hover {
+      border-color: #3e3e46;
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .card-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .variant-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .preview-box {
+      background: radial-gradient(circle at center, #1f1f24 0%, #111114 100%);
+      border: 1px solid #222227;
+      border-radius: 12px;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .svg-showcase {
+      width: 128px;
+      height: 128px;
+      filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.5));
+    }
+
+    .sizes-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 12px 14px;
+      background: #111114;
+      border-radius: 8px;
+      border: 1px solid #202025;
+    }
+
+    .size-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .size-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .card-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .rationale {
+      font-size: 11px;
+      color: #9e9ea6;
+      border-left: 2px solid var(--accent-red);
+      padding-left: 10px;
+      margin-top: 4px;
+    }
+
+    /* Toolbar Preview Section */
+    .toolbar-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-top: 24px;
+    }
+
+    .toolbar-section h3 {
+      font-size: 15px;
+      margin-bottom: 14px;
+    }
+
+    .mock-browser-bar {
+      background: #19191d;
+      border: 1px solid #2e2e34;
+      border-radius: 8px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow-x: auto;
+    }
+
+    .mock-url-box {
+      flex: 1;
+      background: #111114;
+      border: 1px solid #292930;
+      border-radius: 5px;
+      padding: 5px 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #777;
+    }
+
+    .mock-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .toolbar-icon-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #888;
+      background: #131316;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid #25252b;
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      align-self: flex-start;
+      transition: all 0.15s;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: #444;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge">Concept Exploration</span>
+      <h1>Readwise YouTube Liker — Icon Mockups</h1>
+      <p class="subtitle">Three visual treatments pairing Readwise's iconic "R" with the YouTube "+" like action.</p>
+    </header>
+
+    <div class="grid">
+      <!-- OPTION 1: The Integrated Fusion -->
+      <div class="mockup-card">
+        <div class="card-header">
+          <h2>Option 1: The Monogram Cross</h2>
+          <span class="variant-tag">Integrated / Modern</span>
+        </div>
+
+        <div class="preview-box">
+          <svg class="svg-showcase" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="128" height="128" rx="28" fill="#141417"/>
+            <rect x="1" y="1" width="126" height="126" rx="27" stroke="rgba(255, 255, 255, 0.08)" stroke-width="2"/>
+            
+            <!-- Readwise R Spine & Upper Bowl -->
+            <path d="M34 26H64C75.0457 26 84 34.9543 84 46C84 57.0457 75.0457 66 64 66H49" stroke="#F5F5F7" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M49 26V102" stroke="#F5F5F7" stroke-width="12" stroke-linecap="round"/>
+            
+            <!-- Red Like "+" Forming the Leg of the R -->
+            <!-- Diagonal Leg Stem -->
+            <path d="M62 66L84 94" stroke="#FF2A38" stroke-width="12" stroke-linecap="round"/>
+            
+            <!-- Like Plus Accent Cross -->
+            <path d="M96 74V98" stroke="#FF2A38" stroke-width="8" stroke-linecap="round"/>
+            <path d="M84 86H108" stroke="#FF2A38" stroke-width="8" stroke-linecap="round"/>
+            
+            <!-- Small Reader Accent dot -->
+            <circle cx="64" cy="46" r="4" fill="#F5A623"/>
+          </svg>
+        </div>
+
+        <div class="sizes-row">
+          <div class="size-col">
+            <span class="size-label">48px</span>
+            <svg width="48" height="48" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#141417"/>
+              <rect x="1" y="1" width="126" height="126" rx="27" stroke="rgba(255, 255, 255, 0.08)" stroke-width="2"/>
+              <path d="M34 26H64C75.0457 26 84 34.9543 84 46C84 57.0457 75.0457 66 64 66H49" stroke="#F5F5F7" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M49 26V102" stroke="#F5F5F7" stroke-width="12" stroke-linecap="round"/>
+              <path d="M62 66L84 94" stroke="#FF2A38" stroke-width="12" stroke-linecap="round"/>
+              <path d="M96 74V98" stroke="#FF2A38" stroke-width="8" stroke-linecap="round"/>
+              <path d="M84 86H108" stroke="#FF2A38" stroke-width="8" stroke-linecap="round"/>
+              <circle cx="64" cy="46" r="4" fill="#F5A623"/>
+            </svg>
+          </div>
+          <div class="size-col">
+            <span class="size-label">32px</span>
+            <svg width="32" height="32" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#141417"/>
+              <path d="M34 26H64C75.0457 26 84 34.9543 84 46C84 57.0457 75.0457 66 64 66H49" stroke="#F5F5F7" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M49 26V102" stroke="#F5F5F7" stroke-width="14" stroke-linecap="round"/>
+              <path d="M62 66L84 94" stroke="#FF2A38" stroke-width="14" stroke-linecap="round"/>
+              <path d="M96 72V100" stroke="#FF2A38" stroke-width="10" stroke-linecap="round"/>
+              <path d="M82 86H110" stroke="#FF2A38" stroke-width="10" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="size-col">
+            <span class="size-label">16px</span>
+            <svg width="16" height="16" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#141417"/>
+              <path d="M34 26H64C75 26 84 35 84 46C84 57 75 66 64 66H49" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round"/>
+              <path d="M49 26V102" stroke="#FFFFFF" stroke-width="18" stroke-linecap="round"/>
+              <path d="M96 70V102" stroke="#FF2A38" stroke-width="14" stroke-linecap="round"/>
+              <path d="M80 86H112" stroke="#FF2A38" stroke-width="14" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <p class="card-desc">The diagonal leg of the 'R' flows into a sharp YouTube-red <strong>+</strong> cross, uniting the Readwise initial and the like action in a single stroke.</p>
+        <p class="rationale">High cohesion: visually reads as both the letter "R" and an active addition.</p>
+      </div>
+
+      <!-- OPTION 2: The Editorial Reader Badge -->
+      <div class="mockup-card">
+        <div class="card-header">
+          <h2>Option 2: The Reader Badge</h2>
+          <span class="variant-tag">Classic / Editorial</span>
+        </div>
+
+        <div class="preview-box">
+          <svg class="svg-showcase" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="128" height="128" rx="28" fill="#111113"/>
+            <rect x="1" y="1" width="126" height="126" rx="27" stroke="rgba(255, 255, 255, 0.08)" stroke-width="2"/>
+            
+            <!-- Classic Serif-influenced Readwise 'R' -->
+            <path d="M38 28H66C78 28 86 36 86 48C86 59 78 68 66 68H48" stroke="#F5F5F7" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M48 24V104" stroke="#F5F5F7" stroke-width="11" stroke-linecap="round"/>
+            <path d="M64 68L80 104" stroke="#F5F5F7" stroke-width="11" stroke-linecap="round"/>
+            <!-- Top serif -->
+            <path d="M36 28H56" stroke="#F5F5F7" stroke-width="9" stroke-linecap="round"/>
+
+            <!-- Floating Ruby Like Badge with '+' -->
+            <circle cx="94" cy="94" r="24" fill="#E50914" stroke="#111113" stroke-width="4"/>
+            <path d="M94 82V106" stroke="#FFFFFF" stroke-width="6.5" stroke-linecap="round"/>
+            <path d="M82 94H106" stroke="#FFFFFF" stroke-width="6.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <div class="sizes-row">
+          <div class="size-col">
+            <span class="size-label">48px</span>
+            <svg width="48" height="48" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#111113"/>
+              <rect x="1" y="1" width="126" height="126" rx="27" stroke="rgba(255, 255, 255, 0.08)" stroke-width="2"/>
+              <path d="M38 28H66C78 28 86 36 86 48C86 59 78 68 66 68H48" stroke="#F5F5F7" stroke-width="11" stroke-linecap="round"/>
+              <path d="M48 24V104" stroke="#F5F5F7" stroke-width="11" stroke-linecap="round"/>
+              <path d="M64 68L80 104" stroke="#F5F5F7" stroke-width="11" stroke-linecap="round"/>
+              <circle cx="94" cy="94" r="24" fill="#E50914" stroke="#111113" stroke-width="4"/>
+              <path d="M94 82V106" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+              <path d="M82 94H106" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="size-col">
+            <span class="size-label">32px</span>
+            <svg width="32" height="32" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#111113"/>
+              <path d="M48 24V104" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
+              <path d="M38 28H66C78 28 86 36 86 48C86 59 78 68 66 68H48" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
+              <path d="M64 68L80 104" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round"/>
+              <circle cx="94" cy="94" r="26" fill="#E50914" stroke="#111113" stroke-width="5"/>
+              <path d="M94 80V108" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+              <path d="M80 94H108" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="size-col">
+            <span class="size-label">16px</span>
+            <svg width="16" height="16" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#111113"/>
+              <path d="M48 24V104" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round"/>
+              <path d="M38 28H66C78 28 86 36 86 48C86 59 78 68 66 68H48" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round"/>
+              <circle cx="94" cy="94" r="30" fill="#E50914"/>
+              <path d="M94 76V112" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
+              <path d="M76 94H112" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <p class="card-desc">Features Readwise Reader's elegant editorial "R" as the hero, paired with an overlaid YouTube crimson badge holding the positive <strong>+</strong> like indicator.</p>
+        <p class="rationale">Maximum clarity: immediately announces an official Readwise utility with an active like augment.</p>
+      </div>
+
+      <!-- OPTION 3: The Heart-Plus Monogram -->
+      <div class="mockup-card">
+        <div class="card-header">
+          <h2>Option 3: The Heart-Plus Duo</h2>
+          <span class="variant-tag">Punchy / Dual-Tone</span>
+        </div>
+
+        <div class="preview-box">
+          <svg class="svg-showcase" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="128" height="128" rx="28" fill="#16151a"/>
+            <rect x="1" y="1" width="126" height="126" rx="27" stroke="rgba(255, 255, 255, 0.08)" stroke-width="2"/>
+            
+            <!-- Left Spine in Readwise Gold -->
+            <path d="M44 26V102" stroke="#F5A623" stroke-width="12" stroke-linecap="round"/>
+            <path d="M32 26H56" stroke="#F5A623" stroke-width="10" stroke-linecap="round"/>
+            <path d="M32 102H56" stroke="#F5A623" stroke-width="10" stroke-linecap="round"/>
+
+            <!-- Heart-Plus Composite Shape for Bowl & Leg in YouTube Red -->
+            <!-- Upper Bowl -->
+            <path d="M50 26H68C79.0457 26 88 34.9543 88 46C88 57.0457 79.0457 66 68 66H50" stroke="#FF2A38" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+            
+            <!-- Lower Leg -->
+            <path d="M68 66L88 102" stroke="#FF2A38" stroke-width="12" stroke-linecap="round"/>
+            
+            <!-- Floating Plus Symbol Inside Upper Bowl -->
+            <path d="M68 38V54" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+            <path d="M60 46H76" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+
+            <!-- Small Heart Accent at top-right -->
+            <path d="M102 24C102 21.7909 100.209 20 98 20C96.4 20 95.1 20.9 94.4 22.2C93.7 20.9 92.4 20 90.8 20C88.5909 20 86.8 21.7909 86.8 24C86.8 28.5 94.4 33 94.4 33C94.4 33 102 28.5 102 24Z" fill="#FF2A38"/>
+          </svg>
+        </div>
+
+        <div class="sizes-row">
+          <div class="size-col">
+            <span class="size-label">48px</span>
+            <svg width="48" height="48" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#16151a"/>
+              <path d="M44 26V102" stroke="#F5A623" stroke-width="12" stroke-linecap="round"/>
+              <path d="M50 26H68C79 26 88 35 88 46C88 57 79 66 68 66H50" stroke="#FF2A38" stroke-width="12" stroke-linecap="round"/>
+              <path d="M68 66L88 102" stroke="#FF2A38" stroke-width="12" stroke-linecap="round"/>
+              <path d="M68 38V54" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+              <path d="M60 46H76" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="size-col">
+            <span class="size-label">32px</span>
+            <svg width="32" height="32" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#16151a"/>
+              <path d="M44 26V102" stroke="#F5A623" stroke-width="14" stroke-linecap="round"/>
+              <path d="M50 26H68C79 26 88 35 88 46C88 57 79 66 68 66H50" stroke="#FF2A38" stroke-width="14" stroke-linecap="round"/>
+              <path d="M68 66L88 102" stroke="#FF2A38" stroke-width="14" stroke-linecap="round"/>
+              <path d="M68 36V56" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+              <path d="M58 46H78" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="size-col">
+            <span class="size-label">16px</span>
+            <svg width="16" height="16" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#16151a"/>
+              <path d="M44 26V102" stroke="#F5A623" stroke-width="20" stroke-linecap="round"/>
+              <path d="M50 26H68C79 26 88 35 88 46C88 57 79 66 68 66H50" stroke="#FF2A38" stroke-width="20" stroke-linecap="round"/>
+              <path d="M68 66L88 102" stroke="#FF2A38" stroke-width="20" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <p class="card-desc">Dual-tone palette utilizing Readwise's trademark golden amber for the spine, with the right loops in YouTube crimson embedding a central white <strong>+</strong>.</p>
+        <p class="rationale">Brand bridge: perfectly balances Readwise's identity on the left with YouTube's energy on the right.</p>
+      </div>
+    </div>
+
+    <!-- Live Browser Context Simulation -->
+    <div class="toolbar-section">
+      <h3>Context Preview: In Browser Toolbar (Zen / Firefox / Chrome)</h3>
+      <div class="mock-browser-bar">
+        <span style="color:#777; font-size:14px;">◀ ▶ ↻</span>
+        <div class="mock-url-box">https://read.readwise.io/new</div>
+        <div class="mock-actions">
+          <div class="toolbar-icon-wrapper">
+            <svg width="20" height="20" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#141417"/>
+              <path d="M34 26H64C75 26 84 35 84 46C84 57 75 66 64 66H49" stroke="#F5F5F7" stroke-width="12" stroke-linecap="round"/>
+              <path d="M49 26V102" stroke="#F5F5F7" stroke-width="12" stroke-linecap="round"/>
+              <path d="M62 66L84 94" stroke="#FF2A38" stroke-width="12" stroke-linecap="round"/>
+              <path d="M96 74V98" stroke="#FF2A38" stroke-width="8" stroke-linecap="round"/>
+              <path d="M84 86H108" stroke="#FF2A38" stroke-width="8" stroke-linecap="round"/>
+            </svg>
+            <span>Option 1</span>
+          </div>
+
+          <div class="toolbar-icon-wrapper">
+            <svg width="20" height="20" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#111113"/>
+              <path d="M48 24V104" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round"/>
+              <path d="M38 28H66C78 28 86 36 86 48C86 59 78 68 66 68H48" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round"/>
+              <path d="M64 68L80 104" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round"/>
+              <circle cx="94" cy="94" r="26" fill="#E50914"/>
+              <path d="M94 80V108" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+              <path d="M80 94H108" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+            </svg>
+            <span>Option 2</span>
+          </div>
+
+          <div class="toolbar-icon-wrapper">
+            <svg width="20" height="20" viewBox="0 0 128 128" fill="none">
+              <rect width="128" height="128" rx="28" fill="#16151a"/>
+              <path d="M44 26V102" stroke="#F5A623" stroke-width="14" stroke-linecap="round"/>
+              <path d="M50 26H68C79 26 88 35 88 46C88 57 79 66 68 66H50" stroke="#FF2A38" stroke-width="14" stroke-linecap="round"/>
+              <path d="M68 66L88 102" stroke="#FF2A38" stroke-width="14" stroke-linecap="round"/>
+              <path d="M68 36V56" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+              <path d="M58 46H78" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+            </svg>
+            <span>Option 3</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

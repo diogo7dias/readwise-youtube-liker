@@ -1,29 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FF4B4B"/>
-      <stop offset="100%" stop-color="#E50914"/>
-    </linearGradient>
-    <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FF9500"/>
-      <stop offset="100%" stop-color="#E06C00"/>
-    </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.25"/>
-    </filter>
-  </defs>
+<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="28" fill="#111113"/>
+  <rect x="1" y="1" width="126" height="126" rx="27" stroke="rgba(255, 255, 255, 0.08)" stroke-width="2"/>
+  
+  <!-- Classic Serif-influenced Readwise 'R' -->
+  <path d="M38 28H66C78 28 86 36 86 48C86 59 78 68 66 68H48" stroke="#F5F5F7" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M48 24V104" stroke="#F5F5F7" stroke-width="11" stroke-linecap="round"/>
+  <path d="M64 68L80 104" stroke="#F5F5F7" stroke-width="11" stroke-linecap="round"/>
+  <!-- Top serif -->
+  <path d="M36 28H56" stroke="#F5F5F7" stroke-width="9" stroke-linecap="round"/>
 
-  <!-- Background rounded card -->
-  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#bgGrad)" filter="url(#shadow)"/>
-
-  <!-- Readwise bookmark badge in corner -->
-  <path d="M26 18 H52 V56 L39 46 L26 56 Z" fill="url(#badgeGrad)"/>
-
-  <!-- Thumbs up / Like icon in white -->
-  <g fill="#FFFFFF" transform="translate(14, 10)">
-    <!-- Thumbs up SVG path -->
-    <path d="M68 40 C68 33 65 24 55 24 C50 24 46 29 46 36 C46 45 36 55 30 57 V88 C30 90 32 92 35 92 H68 C73 92 77 88 78 83 L83 60 C84 55 80 50 75 50 H65 C67 47 68 44 68 40 Z"/>
-    <!-- Cuff / sleeve -->
-    <rect x="18" y="57" width="9" height="35" rx="3" fill="#FFFFFF"/>
-  </g>
+  <!-- Floating Ruby Like Badge with '+' -->
+  <circle cx="94" cy="94" r="24" fill="#E50914" stroke="#111113" stroke-width="4"/>
+  <path d="M94 82V106" stroke="#FFFFFF" stroke-width="6.5" stroke-linecap="round"/>
+  <path d="M82 94H106" stroke="#FFFFFF" stroke-width="6.5" stroke-linecap="round"/>
 </svg>
