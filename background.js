@@ -189,8 +189,15 @@ function likeVideoInTab(cleanUrl) {
   return new Promise(async (resolve, reject) => {
     let tabId = null;
     let timeoutId = null;
+    let resolved = false;
+
+    // Attach rw_autolike parameter
+    const sep = cleanUrl.includes('?') ? '&' : '?';
+    const targetUrl = `${cleanUrl}${sep}rw_autolike=1`;
 
     const cleanup = async () => {
+      chrome.runtime.onMessage.removeListener(messageListener);
+      chrome.tabs.onUpdated.removeListener(statusListener);
       if (timeoutId) clearTimeout(timeoutId);
       if (tabId) {
         try {
@@ -202,75 +209,68 @@ function likeVideoInTab(cleanUrl) {
       }
     };
 
-    // Global timeout of 25 seconds for the entire tab liking operation
-    timeoutId = setTimeout(async () => {
+    const done = async (err, result) => {
+      if (resolved) return;
+      resolved = true;
       await cleanup();
-      reject(new Error('Timed out waiting for YouTube tab to load and like.'));
-    }, 25000);
+      if (err) reject(err);
+      else resolve(result);
+    };
+
+    // 1. Direct message listener from youtube_content.js
+    const messageListener = (msg, sender) => {
+      if (msg.action === 'LIKE_RESULT' && sender.tab && sender.tab.id === tabId) {
+        if (msg.success) {
+          done(null, msg);
+        } else {
+          done(new Error(msg.error || 'Failed to like video on YouTube.'));
+        }
+      }
+    };
+    chrome.runtime.onMessage.addListener(messageListener);
+
+    // Global timeout of 24 seconds
+    timeoutId = setTimeout(() => {
+      done(new Error('Timed out waiting for YouTube tab to load and like.'));
+    }, 24000);
+
+    // 2. Secondary backup: onUpdated complete trigger
+    const statusListener = async (updatedTabId, changeInfo, tabInfo) => {
+      if (updatedTabId === tabId && changeInfo.status === 'complete') {
+        const url = tabInfo?.url || '';
+        if (url && !url.includes('youtube.com')) return;
+
+        // Allow 1.5s for DOM initialization then poke content script
+        await new Promise(r => setTimeout(r, 1500));
+        if (resolved) return;
+
+        try {
+          chrome.tabs.sendMessage(tabId, { action: 'EXECUTE_LIKE' }, (response) => {
+            if (chrome.runtime.lastError) {
+              // Content script will self-execute via rw_autolike=1
+              return;
+            }
+            if (response && response.success) {
+              done(null, response);
+            } else if (response && !response.success) {
+              done(new Error(response.error || 'Could not find YouTube Like button.'));
+            }
+          });
+        } catch (_) {}
+      }
+    };
+    chrome.tabs.onUpdated.addListener(statusListener);
 
     try {
       const tab = await chrome.tabs.create({
-        url: cleanUrl,
+        url: targetUrl,
         active: false, // in background
         muted: true,   // mute tab audio immediately
       });
       tabId = tab.id;
       state.activeTabId = tabId;
-
-      // Listener to wait until tab finishes loading
-      const statusListener = async (updatedTabId, changeInfo) => {
-        if (updatedTabId === tabId && changeInfo.status === 'complete') {
-          chrome.tabs.onUpdated.removeListener(statusListener);
-
-          // Give YouTube scripts 1.2s to initialize custom elements
-          await new Promise(r => setTimeout(r, 1200));
-
-          try {
-            // Send command to content script
-            chrome.tabs.sendMessage(tabId, { action: 'EXECUTE_LIKE' }, async (response) => {
-              const lastErr = chrome.runtime.lastError;
-              if (lastErr) {
-                // If content script was not ready, inject it dynamically as fallback
-                try {
-                  await chrome.scripting.executeScript({
-                    target: { tabId },
-                    files: ['youtube_content.js'],
-                  });
-                  await new Promise(r => setTimeout(r, 800));
-                  chrome.tabs.sendMessage(tabId, { action: 'EXECUTE_LIKE' }, async (resp2) => {
-                    await cleanup();
-                    if (resp2 && resp2.success) {
-                      resolve(resp2);
-                    } else {
-                      reject(new Error(resp2?.error || 'Content script failed to like.'));
-                    }
-                  });
-                  return;
-                } catch (injErr) {
-                  await cleanup();
-                  reject(new Error(`Could not communicate with YouTube tab: ${lastErr.message}`));
-                  return;
-                }
-              }
-
-              await cleanup();
-              if (response && response.success) {
-                resolve(response);
-              } else {
-                reject(new Error(response?.error || 'Failed to like video on YouTube.'));
-              }
-            });
-          } catch (sendErr) {
-            await cleanup();
-            reject(sendErr);
-          }
-        }
-      };
-
-      chrome.tabs.onUpdated.addListener(statusListener);
     } catch (createErr) {
-      if (timeoutId) clearTimeout(timeoutId);
-      reject(createErr);
+      done(createErr);
     }
   });
 }

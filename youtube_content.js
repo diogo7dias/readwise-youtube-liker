@@ -1,137 +1,248 @@
 /**
  * Content script running on YouTube to handle auto-liking videos.
- * Only executes liking when explicitly invoked via chrome.runtime messages.
+ * Runs at document_start to spoof page visibility and silence audio immediately.
  */
 
-// Mute and pause all videos on page immediately to prevent loud autoplay in background
-function silencePlayer() {
+// 1. Spoof Page Visibility API so YouTube renders full player & metadata in background tabs
+try {
+  Object.defineProperty(document, 'hidden', {
+    get: () => false,
+    configurable: true,
+  });
+  Object.defineProperty(document, 'visibilityState', {
+    get: () => 'visible',
+    configurable: true,
+  });
+  Object.defineProperty(document, 'webkitHidden', {
+    get: () => false,
+    configurable: true,
+  });
+  Object.defineProperty(document, 'webkitVisibilityState', {
+    get: () => 'visible',
+    configurable: true,
+  });
+
+  // Block visibilitychange events so YouTube never detects inactive tab
+  window.addEventListener('visibilitychange', (e) => e.stopImmediatePropagation(), true);
+  window.addEventListener('webkitvisibilitychange', (e) => e.stopImmediatePropagation(), true);
+} catch (e) {
+  console.debug('[Readwise Auto-Liker] Visibility override note:', e);
+}
+
+// 2. Mute and pause all audio/video playback immediately
+function silenceMedia() {
   try {
     const videos = document.querySelectorAll('video');
     videos.forEach(v => {
       v.muted = true;
+      v.volume = 0;
       if (!v.paused) {
         v.pause();
       }
     });
-  } catch (err) {
-    console.debug('[Readwise Auto-Liker] Silence error:', err);
-  }
+  } catch (_) {}
 }
 
-// Continuously keep video muted while page loads
-const silenceInterval = setInterval(silencePlayer, 200);
-setTimeout(() => clearInterval(silenceInterval), 8000);
+silenceMedia();
 
-// Helper to find the Like button across various YouTube desktop & mobile layouts
-function findLikeButton() {
-  // Layout 1: Modern Segmented Like/Dislike Button (Standard watch page)
-  const segmented = document.querySelector('segmented-like-dislike-button-view-model, #segmented-like-button');
-  if (segmented) {
-    const likeBtn = segmented.querySelector('like-button-view-model button, button:first-of-type');
-    if (likeBtn) return likeBtn;
+// Continuously watch for newly inserted video elements and mute them
+if (document.documentElement) {
+  const mediaObserver = new MutationObserver(() => silenceMedia());
+  mediaObserver.observe(document.documentElement, { childList: true, subtree: true });
+}
+
+// 3. Recursive Shadow DOM & Light DOM search for YouTube's Like Button
+function findYouTubeLikeButton() {
+  // Strategy A: Direct light DOM queries
+  const lightSelectors = [
+    'segmented-like-dislike-button-view-model button',
+    'like-button-view-model button',
+    '#segmented-like-button button',
+    'ytd-toggle-button-renderer:first-child button',
+    '#top-level-buttons-computed button',
+    'ytd-like-button-renderer button',
+    '#like-button button',
+    'ytd-reel-player-header-renderer button',
+  ];
+
+  for (const sel of lightSelectors) {
+    try {
+      const el = document.querySelector(sel);
+      if (el && isLikeCandidate(el)) return el;
+    } catch (_) {}
   }
 
-  // Layout 2: Like button view model
-  const likeViewModel = document.querySelector('like-button-view-model button');
-  if (likeViewModel) return likeViewModel;
+  // Strategy B: Traverse known Shadow DOM hosts directly
+  const hostSelectors = [
+    'like-button-view-model',
+    'segmented-like-dislike-button-view-model',
+    'toggle-button-view-model',
+    'button-view-model',
+    'yt-button-shape',
+    'ytd-watch-metadata',
+    '#top-level-buttons-computed',
+  ];
 
-  // Layout 3: Shorts like button
-  const shortsLike = document.querySelector('ytd-like-button-renderer button, #like-button button, ytd-reel-player-header-renderer button[aria-label*="like" i]');
-  if (shortsLike) return shortsLike;
+  for (const sel of hostSelectors) {
+    try {
+      const hosts = document.querySelectorAll(sel);
+      for (const host of hosts) {
+        if (host.shadowRoot) {
+          const btn = host.shadowRoot.querySelector('button');
+          if (btn && isLikeCandidate(btn)) return btn;
 
-  // Layout 4: Top-level action buttons computed
-  const actionButton = document.querySelector('#top-level-buttons-computed ytd-toggle-button-renderer:first-child button');
-  if (actionButton) return actionButton;
+          // Check nested shadow roots
+          const subHosts = host.shadowRoot.querySelectorAll('*');
+          for (const sub of subHosts) {
+            if (sub.shadowRoot) {
+              const subBtn = sub.shadowRoot.querySelector('button');
+              if (subBtn && isLikeCandidate(subBtn)) return subBtn;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
 
-  // Layout 5: Fallback search across all buttons for aria-label or title
-  const buttons = Array.from(document.querySelectorAll('button'));
-  for (const btn of buttons) {
-    const label = (btn.getAttribute('aria-label') || '').toLowerCase();
-    const title = (btn.getAttribute('title') || '').toLowerCase();
-    if ((label.includes('like') && !label.includes('dislike')) ||
-        (title.includes('like') && !title.includes('dislike'))) {
-      return btn;
+  // Strategy C: Full recursive search across all open Shadow Roots
+  function searchRoots(node) {
+    if (!node) return null;
+
+    if (node.querySelectorAll) {
+      const buttons = node.querySelectorAll('button, [role="button"]');
+      for (const btn of buttons) {
+        if (isLikeCandidate(btn)) return btn;
+      }
     }
+
+    const all = node.querySelectorAll ? node.querySelectorAll('*') : [];
+    for (const el of all) {
+      if (el.shadowRoot) {
+        const found = searchRoots(el.shadowRoot);
+        if (found) return found;
+      }
+    }
+
+    return null;
   }
 
-  return null;
+  return searchRoots(document);
 }
 
-// Check whether the like button is currently active/pressed
-function isAlreadyLiked(button) {
-  if (!button) return false;
+// Check if a button element is actually a Like button (not dislike)
+function isLikeCandidate(btn) {
+  if (!btn) return false;
+  const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+  const title = (btn.getAttribute('title') || '').toLowerCase();
+  const text = (btn.textContent || '').trim().toLowerCase();
 
-  // Standard accessibility attribute for toggled state
-  const ariaPressed = button.getAttribute('aria-pressed');
-  if (ariaPressed === 'true') return true;
+  // Exclude dislike explicitly
+  if (label.includes('dislike') || title.includes('dislike')) return false;
 
-  // Modern YouTube often uses aria-label="Unlike" when already liked
-  const label = (button.getAttribute('aria-label') || '').toLowerCase();
+  // Match like patterns
+  if (label.includes('like this') || label.startsWith('like') || label.includes('liked')) return true;
+  if (title.includes('like this') || title.startsWith('like')) return true;
+
+  // Check closest custom element tag
+  if (btn.closest && btn.closest('like-button-view-model')) return true;
+
+  return false;
+}
+
+// Check if the button is currently liked
+function isButtonLiked(btn) {
+  if (!btn) return false;
+
+  // 1. Check aria-pressed
+  const pressed = btn.getAttribute('aria-pressed');
+  if (pressed === 'true') return true;
+
+  // 2. Check aria-label for state
+  const label = (btn.getAttribute('aria-label') || '').toLowerCase();
   if (label.includes('unlike') || label.includes('remove like')) return true;
 
-  // Class indicator check
-  if (button.classList.contains('yt-spec-button-shape-next--tonal') &&
-      !button.closest('dislike-button-view-model')) {
-    // Might be active, verify aria-pressed isn't explicitly false
-    if (ariaPressed !== 'false') return true;
+  // 3. Check tonal styling class on button or its shadow host
+  if (btn.classList.contains('yt-spec-button-shape-next--tonal')) {
+    const parentDislike = btn.closest ? btn.closest('dislike-button-view-model') : null;
+    if (!parentDislike) return true;
+  }
+
+  // 4. Check ancestors up to 5 levels
+  let cur = btn;
+  for (let i = 0; i < 5 && cur; i++) {
+    if (cur.getAttribute && cur.getAttribute('aria-pressed') === 'true') return true;
+    if (cur.classList && cur.classList.contains('yt-spec-button-shape-next--tonal')) {
+      const curLabel = (cur.getAttribute('aria-label') || '').toLowerCase();
+      if (!curLabel.includes('dislike')) return true;
+    }
+    cur = cur.parentElement || (cur.parentNode && cur.parentNode.host ? cur.parentNode.host : null);
   }
 
   return false;
 }
 
-// Execute the liking workflow
-async function handleLikeRequest() {
-  silencePlayer();
+// Main execution routine
+async function executeLikeWorkflow() {
+  silenceMedia();
 
-  const maxWaitMs = 12000;
+  const maxWaitMs = 18000;
   const pollIntervalMs = 350;
   const startTime = Date.now();
 
   let likeBtn = null;
 
-  // Poll until Like button appears in YouTube's dynamically rendered DOM
+  // Poll until Like button is discovered
   while (Date.now() - startTime < maxWaitMs) {
-    likeBtn = findLikeButton();
+    silenceMedia();
+    likeBtn = findYouTubeLikeButton();
     if (likeBtn) break;
-    await new Promise(res => setTimeout(res, pollIntervalMs));
+    await new Promise(r => setTimeout(r, pollIntervalMs));
   }
 
   if (!likeBtn) {
+    // Collect page diagnostic info
+    const totalButtons = document.querySelectorAll('button').length;
+    const title = document.title;
     return {
       success: false,
-      error: 'Could not find YouTube Like button. The video may be private, age-restricted, or layout changed.'
+      error: `Could not find YouTube Like button after 18s (page: "${title}", buttons found: ${totalButtons}).`,
     };
   }
 
-  // Check if it's already liked
-  if (isAlreadyLiked(likeBtn)) {
+  // Check if already liked
+  if (isButtonLiked(likeBtn)) {
     return {
       success: true,
       alreadyLiked: true,
-      message: 'Video was already liked on YouTube.'
+      message: 'Video was already liked on YouTube.',
     };
   }
 
   // Click the like button
-  likeBtn.click();
+  try {
+    likeBtn.click();
+    likeBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+  } catch (clickErr) {
+    console.warn('[Readwise Auto-Liker] Click error:', clickErr);
+  }
 
-  // Wait briefly to confirm state change
+  // Wait to verify like state updated
   const confirmStart = Date.now();
   let confirmed = false;
 
   while (Date.now() - confirmStart < 4000) {
-    await new Promise(res => setTimeout(res, 300));
-    if (isAlreadyLiked(likeBtn)) {
+    await new Promise(r => setTimeout(r, 350));
+    if (isButtonLiked(likeBtn)) {
       confirmed = true;
       break;
     }
 
-    // Check if a sign-in dialog appeared (user not logged in to YouTube)
+    // Check for sign-in dialog
     const dialog = document.querySelector('ytd-modal-with-title-and-button-renderer, tp-yt-paper-dialog');
     if (dialog && dialog.textContent.toLowerCase().includes('sign in')) {
       return {
         success: false,
-        error: 'YouTube requires sign-in. Please log in to your YouTube account in this Chrome profile.'
+        error: 'YouTube requires sign-in. Please log into YouTube in this browser profile.',
       };
     }
   }
@@ -140,18 +251,43 @@ async function handleLikeRequest() {
     success: true,
     alreadyLiked: false,
     confirmed: confirmed,
-    message: confirmed ? 'Successfully liked video on YouTube.' : 'Like clicked (state update pending).'
+    message: confirmed ? 'Successfully liked video on YouTube.' : 'Like clicked on YouTube.',
   };
 }
 
-// Listen for messages from background script
+// Auto-run if opened with the rw_autolike=1 parameter
+let executionStarted = false;
+
+function checkAutoStart() {
+  if (executionStarted) return;
+  const url = window.location.href;
+  if (url.includes('rw_autolike=1')) {
+    executionStarted = true;
+    // Allow DOM 1s to settle
+    setTimeout(() => {
+      executeLikeWorkflow().then(result => {
+        chrome.runtime.sendMessage({ action: 'LIKE_RESULT', ...result });
+      }).catch(err => {
+        chrome.runtime.sendMessage({ action: 'LIKE_RESULT', success: false, error: err.message || String(err) });
+      });
+    }, 1000);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', checkAutoStart);
+} else {
+  checkAutoStart();
+}
+
+// Also handle manual invocation from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'EXECUTE_LIKE') {
-    handleLikeRequest().then(result => {
+    executeLikeWorkflow().then(result => {
       sendResponse(result);
     }).catch(err => {
       sendResponse({ success: false, error: err.message || String(err) });
     });
-    return true; // Keep message channel open for async response
+    return true;
   }
 });
