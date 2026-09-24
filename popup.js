@@ -591,7 +591,17 @@ function refreshState() {
   });
 }
 
+// Open external links reliably in a new browser tab
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('a[href^="http"]');
+  if (link) {
+    e.preventDefault();
+    chrome.tabs.create({ url: link.href });
+  }
+});
+
 window.addEventListener('DOMContentLoaded', init);
 window.addEventListener('beforeunload', () => {
   if (updateInterval) clearInterval(updateInterval);
 });
+
